@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Demo.UiTests/Demo.UiTests.csproj" />
+    <Project Path="src/LocatorHealing.Agent/LocatorHealing.Agent.csproj" />
+  </Folder>
+</Solution>

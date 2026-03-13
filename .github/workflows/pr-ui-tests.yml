@@ -48,8 +48,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: locator-healing-artifacts
-          path: |
-            artifacts/dom-snapshots/**
-            artifacts/error-traces/**
-            artifacts/screenshots/**
+            name: locator-healing-artifacts
+            path: |
+                artifacts/dom-snapshots/**
+                artifacts/error-traces/**
+                artifacts/screenshots/**
+            if-no-files-found: ignore

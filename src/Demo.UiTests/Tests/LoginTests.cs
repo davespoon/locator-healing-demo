@@ -8,7 +8,7 @@ public sealed class LoginTests : TestBase
     [Test]
     public void StandardUserCanLogin()
     {
-        var loginPage = new LoginPage(Driver, this);
+        var loginPage = new LoginPage(Driver);
         var inventoryPage = new InventoryPage(Driver);
 
         loginPage.Open();

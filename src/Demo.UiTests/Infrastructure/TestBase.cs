@@ -11,8 +11,8 @@ public abstract class TestBase
     [SetUp]
     public void BaseSetUp()
     {
-        Driver = WebDriverFactory.CreateChrome();
         Artifacts = new ArtifactWriter();
+        Driver = WebDriverFactory.CreateChrome();
     }
 
     [TearDown]
@@ -20,11 +20,37 @@ public abstract class TestBase
     {
         try
         {
-            var status = TestContext.CurrentContext.Result.Outcome.Status;
+            var result = TestContext.CurrentContext.Result;
+            var status = result.Outcome.Status;
+
             if (status == TestStatus.Failed)
             {
-                Artifacts.WriteScreenshot(TestContext.CurrentContext.Test.Name, Driver);
-                Artifacts.WriteDomSnapshot(TestContext.CurrentContext.Test.Name, Driver.PageSource);
+                var testName = TestContext.CurrentContext.Test.Name;
+
+                var screenshotPath = Artifacts.WriteScreenshot(testName, Driver);
+                var domPath = Artifacts.WriteDomSnapshot(testName, Driver.PageSource);
+                var metadataPath = Artifacts.WriteFailureMetadata(
+                    testName: testName,
+                    url: SafeGetUrl(),
+                    outcomeStatus: result.Outcome.Status.ToString(),
+                    outcomeLabel: result.Outcome.Label ?? string.Empty,
+                    message: result.Message ?? string.Empty,
+                    stackTrace: result.StackTrace ?? string.Empty);
+
+                if (!string.IsNullOrWhiteSpace(screenshotPath) && File.Exists(screenshotPath))
+                {
+                    TestContext.AddTestAttachment(screenshotPath, "Failure screenshot");
+                }
+
+                if (File.Exists(domPath))
+                {
+                    TestContext.AddTestAttachment(domPath, "DOM snapshot");
+                }
+
+                if (File.Exists(metadataPath))
+                {
+                    TestContext.AddTestAttachment(metadataPath, "Failure metadata");
+                }
             }
         }
         finally
@@ -34,27 +60,15 @@ public abstract class TestBase
         }
     }
 
-    public T CaptureLocatorFailure<T>(
-        string locatorName,
-        string locatorValue,
-        Func<T> action)
+    private string SafeGetUrl()
     {
         try
         {
-            return action();
+            return Driver.Url;
         }
-        catch (NoSuchElementException ex)
+        catch
         {
-            Artifacts.WriteDomSnapshot(TestContext.CurrentContext.Test.Name, Driver.PageSource);
-            Artifacts.WriteScreenshot(TestContext.CurrentContext.Test.Name, Driver);
-            Artifacts.WriteErrorTrace(
-                TestContext.CurrentContext.Test.Name,
-                ex,
-                Driver.Url,
-                locatorName,
-                locatorValue);
-
-            throw;
+            return string.Empty;
         }
     }
 }

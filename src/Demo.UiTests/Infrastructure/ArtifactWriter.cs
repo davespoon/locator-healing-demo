@@ -5,7 +5,7 @@ namespace Demo.UiTests.Infrastructure;
 
 public sealed class ArtifactWriter(string? root = null)
 {
-    private readonly string _root = root ?? Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "artifacts");
+    private readonly string _root = root ?? ResolveArtifactsRoot();
 
     public string WriteDomSnapshot(string testName, string html)
     {
@@ -14,20 +14,27 @@ public sealed class ArtifactWriter(string? root = null)
         return path;
     }
 
-    public string WriteErrorTrace(string testName, Exception ex, string url, string locatorName, string locatorValue)
+    public string WriteFailureMetadata(
+        string testName,
+        string url,
+        string outcomeStatus,
+        string outcomeLabel,
+        string message,
+        string stackTrace)
     {
         var path = BuildPath("error-traces", testName, "txt");
 
         var content = $"""
                        Test: {testName}
                        Url: {url}
-                       LocatorName: {locatorName}
-                       LocatorValue: {locatorValue}
-                       ExceptionType: {ex.GetType().FullName}
-                       Message: {ex.Message}
+                       OutcomeStatus: {outcomeStatus}
+                       OutcomeLabel: {outcomeLabel}
+
+                       Message:
+                       {message}
 
                        StackTrace:
-                       {ex.StackTrace}
+                       {stackTrace}
                        """;
 
         File.WriteAllText(path, content, Encoding.UTF8);
@@ -51,9 +58,31 @@ public sealed class ArtifactWriter(string? root = null)
         var directory = Path.Combine(_root, folder);
         Directory.CreateDirectory(directory);
 
-        var safeTestName = string.Concat(testName.Select(ch => Path.GetInvalidFileNameChars().Contains(ch) ? '_' : ch));
+        var safeTestName = string.Concat(
+            testName.Select(ch => Path.GetInvalidFileNameChars().Contains(ch) ? '_' : ch));
+
         var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
 
         return Path.Combine(directory, $"{safeTestName}_{timestamp}.{extension}");
+    }
+
+    private static string ResolveArtifactsRoot()
+    {
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (current is not null)
+        {
+            var hasGit = Directory.Exists(Path.Combine(current.FullName, ".git"));
+            var hasSolution = File.Exists(Path.Combine(current.FullName, "LocatorHealingDemo.slnx"));
+
+            if (hasGit || hasSolution)
+            {
+                return Path.Combine(current.FullName, "artifacts");
+            }
+
+            current = current.Parent;
+        }
+
+        return Path.Combine(Directory.GetCurrentDirectory(), "artifacts");
     }
 }

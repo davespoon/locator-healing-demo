@@ -121,16 +121,15 @@ public sealed partial class SeleniumFailureParser(RepoPathResolver repoPathResol
         return locations;
     }
 
-    [GeneratedRegex(@"---->\s*(?<type>[\w\.]+)\s*:", RegexOptions.Compiled)]
+    [GeneratedRegex(@"---->\s*(?<type>[\w\.]+)\s*:")]
     private static partial Regex NestedExceptionRegex();
 
-    [GeneratedRegex(@"^\s*(?<type>[\w\.]+)\s*:", RegexOptions.Compiled)]
+    [GeneratedRegex(@"^\s*(?<type>[\w\.]+)\s*:")]
     private static partial Regex TopLevelExceptionRegex();
 
-    [GeneratedRegex("""Unable to locate element:\s*\{"method":"(?<method>[^"]+)","selector":"(?<selector>[^"]+)"\}""",
-        RegexOptions.Compiled)]
+    [GeneratedRegex("""Unable to locate element:\s*\{"method":"(?<method>[^"]+)","selector":"(?<selector>[^"]+)"\}""")]
     private static partial Regex LocatorRegex();
 
-    [GeneratedRegex(@"in\s+(?<file>.*?\.cs):line\s+(?<line>\d+)", RegexOptions.Compiled)]
+    [GeneratedRegex(@"in\s+(?<file>.*?\.cs):line\s+(?<line>\d+)")]
     private static partial Regex SourceLocationRegex();
 }

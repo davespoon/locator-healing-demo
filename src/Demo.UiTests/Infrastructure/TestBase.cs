@@ -8,10 +8,18 @@ public abstract class TestBase
     protected IWebDriver Driver = null!;
     protected ArtifactWriter Artifacts = null!;
 
+    private IFailureDiagnosticsWriter _failureDiagnosticsWriter = null!;
+    private SeleniumFailureParser _failureParser = null!;
+
     [SetUp]
     public void BaseSetUp()
     {
-        Artifacts = new ArtifactWriter();
+        var pathProvider = new ArtifactPathProvider();
+
+        Artifacts = new ArtifactWriter(pathProvider);
+        _failureDiagnosticsWriter = new JsonFailureDiagnosticsWriter(pathProvider);
+        _failureParser = new SeleniumFailureParser();
+
         Driver = WebDriverFactory.CreateChrome();
     }
 
@@ -26,37 +34,65 @@ public abstract class TestBase
             if (status == TestStatus.Failed)
             {
                 var testName = TestContext.CurrentContext.Test.Name;
+                var testFullName = TestContext.CurrentContext.Test.FullName;
+                var message = result.Message ?? string.Empty;
+                var stackTrace = result.StackTrace ?? string.Empty;
 
-                var screenshotPath = Artifacts.WriteScreenshot(testName, Driver);
-                var domPath = Artifacts.WriteDomSnapshot(testName, Driver.PageSource);
-                var metadataPath = Artifacts.WriteFailureMetadata(
+                var screenshotPath = TryWriteScreenshot(testName);
+                var domPath = TryWriteDomSnapshot(testName);
+
+                var diagnostics = _failureParser.Parse(
                     testName: testName,
+                    testFullName: testFullName,
                     url: SafeGetUrl(),
                     outcomeStatus: result.Outcome.Status.ToString(),
                     outcomeLabel: result.Outcome.Label ?? string.Empty,
-                    message: result.Message ?? string.Empty,
-                    stackTrace: result.StackTrace ?? string.Empty);
+                    message: message,
+                    stackTrace: stackTrace);
 
-                if (!string.IsNullOrWhiteSpace(screenshotPath) && File.Exists(screenshotPath))
-                {
-                    TestContext.AddTestAttachment(screenshotPath, "Failure screenshot");
-                }
+                var diagnosticsPath = _failureDiagnosticsWriter.Write(diagnostics);
 
-                if (File.Exists(domPath))
-                {
-                    TestContext.AddTestAttachment(domPath, "DOM snapshot");
-                }
-
-                if (File.Exists(metadataPath))
-                {
-                    TestContext.AddTestAttachment(metadataPath, "Failure metadata");
-                }
+                AddAttachmentIfExists(screenshotPath, "Failure screenshot");
+                AddAttachmentIfExists(domPath, "DOM snapshot");
+                AddAttachmentIfExists(diagnosticsPath, "Failure diagnostics");
             }
         }
         finally
         {
             Driver.Quit();
             Driver.Dispose();
+        }
+    }
+
+    private string? TryWriteScreenshot(string testName)
+    {
+        try
+        {
+            return Artifacts.WriteScreenshot(testName, Driver);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private string? TryWriteDomSnapshot(string testName)
+    {
+        try
+        {
+            return Artifacts.WriteDomSnapshot(testName, Driver.PageSource);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void AddAttachmentIfExists(string? path, string description)
+    {
+        if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+        {
+            TestContext.AddTestAttachment(path, description);
         }
     }
 

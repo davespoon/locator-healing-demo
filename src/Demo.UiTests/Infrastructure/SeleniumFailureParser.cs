@@ -2,24 +2,8 @@
 
 namespace Demo.UiTests.Infrastructure;
 
-public sealed class SeleniumFailureParser
+public sealed partial class SeleniumFailureParser(RepoPathResolver repoPathResolver)
 {
-    private static readonly Regex NestedExceptionRegex =
-        new(@"---->\s*(?<type>[\w\.]+)\s*:", RegexOptions.Compiled);
-
-    private static readonly Regex TopLevelExceptionRegex =
-        new(@"^\s*(?<type>[\w\.]+)\s*:", RegexOptions.Compiled);
-
-    private static readonly Regex LocatorRegex =
-        new(
-            """Unable to locate element:\s*\{"method":"(?<method>[^"]+)","selector":"(?<selector>[^"]+)"\}""",
-            RegexOptions.Compiled);
-
-    private static readonly Regex SourceLocationRegex =
-        new(
-            @"in\s+(?<file>.*?\.cs):line\s+(?<line>\d+)",
-            RegexOptions.Compiled);
-
     public FailureDiagnostics Parse(
         string testName,
         string testFullName,
@@ -27,30 +11,27 @@ public sealed class SeleniumFailureParser
         string outcomeStatus,
         string outcomeLabel,
         string message,
-        string stackTrace)
+        string stackTrace,
+        string? domSnapshotPath,
+        string? screenshotPath)
     {
-        var exceptionType = ExtractExceptionType(message);
+        var outerExceptionType = ExtractOuterExceptionType(message);
+        var rootCauseExceptionType = ExtractRootCauseExceptionType(message);
         var locatorHint = ExtractLocatorHint(message);
         var sourceLocations = ExtractSourceLocations(stackTrace);
 
-        var pageObjectLocation = sourceLocations
-            .FirstOrDefault(location => location.FilePath.EndsWith("Page.cs", StringComparison.OrdinalIgnoreCase)
-                                        || location.FilePath.Contains(
-                                            $"{Path.DirectorySeparatorChar}Pages{Path.DirectorySeparatorChar}",
-                                            StringComparison.OrdinalIgnoreCase)
-                                        || location.FilePath.Contains("/Pages/", StringComparison.OrdinalIgnoreCase)
-                                        || location.FilePath.Contains("\\Pages\\", StringComparison.OrdinalIgnoreCase));
+        var pageObjectLocation = sourceLocations.FirstOrDefault(location =>
+            location.FilePath.EndsWith("Page.cs", StringComparison.OrdinalIgnoreCase) ||
+            location.FilePath.Contains("/Pages/", StringComparison.OrdinalIgnoreCase) ||
+            location.FilePath.Contains("\\Pages\\", StringComparison.OrdinalIgnoreCase));
 
-        var testLocation = sourceLocations
-            .FirstOrDefault(location => location.FilePath.EndsWith("Tests.cs", StringComparison.OrdinalIgnoreCase)
-                                        || location.FilePath.Contains(
-                                            $"{Path.DirectorySeparatorChar}Tests{Path.DirectorySeparatorChar}",
-                                            StringComparison.OrdinalIgnoreCase)
-                                        || location.FilePath.Contains("/Tests/", StringComparison.OrdinalIgnoreCase)
-                                        || location.FilePath.Contains("\\Tests\\", StringComparison.OrdinalIgnoreCase));
+        var testLocation = sourceLocations.FirstOrDefault(location =>
+            location.FilePath.EndsWith("Tests.cs", StringComparison.OrdinalIgnoreCase) ||
+            location.FilePath.Contains("/Tests/", StringComparison.OrdinalIgnoreCase) ||
+            location.FilePath.Contains("\\Tests\\", StringComparison.OrdinalIgnoreCase));
 
         return new FailureDiagnostics(
-            SchemaVersion: "1.0",
+            SchemaVersion: "1.1",
             GeneratedAtUtc: DateTimeOffset.UtcNow,
             TestName: testName,
             TestFullName: testFullName,
@@ -59,29 +40,53 @@ public sealed class SeleniumFailureParser
             OutcomeLabel: outcomeLabel,
             Message: message,
             StackTrace: stackTrace,
-            ExceptionType: exceptionType,
+            OuterExceptionType: outerExceptionType,
+            RootCauseExceptionType: rootCauseExceptionType,
             LocatorHint: locatorHint,
             PageObjectLocation: pageObjectLocation,
-            TestLocation: testLocation);
+            TestLocation: testLocation,
+            RepoRelativePageObjectPath: repoPathResolver.ToRepoRelativePath(pageObjectLocation?.FilePath),
+            RepoRelativeTestPath: repoPathResolver.ToRepoRelativePath(testLocation?.FilePath),
+            DomSnapshotPath: repoPathResolver.ToRepoRelativePath(domSnapshotPath) ?? domSnapshotPath,
+            ScreenshotPath: repoPathResolver.ToRepoRelativePath(screenshotPath) ?? screenshotPath);
     }
 
-    private static string? ExtractExceptionType(string message)
+    private static string? ExtractOuterExceptionType(string message)
     {
-        var nestedMatch = NestedExceptionRegex.Match(message);
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return null;
+        }
+
+        var match = TopLevelExceptionRegex().Match(message);
+        return match.Success ? match.Groups["type"].Value : null;
+    }
+
+    private static string? ExtractRootCauseExceptionType(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return null;
+        }
+
+        var nestedMatch = NestedExceptionRegex().Match(message);
         if (nestedMatch.Success)
         {
             return nestedMatch.Groups["type"].Value;
         }
 
-        var topLevelMatch = TopLevelExceptionRegex.Match(message);
-        return topLevelMatch.Success
-            ? topLevelMatch.Groups["type"].Value
-            : null;
+        var topLevelMatch = TopLevelExceptionRegex().Match(message);
+        return topLevelMatch.Success ? topLevelMatch.Groups["type"].Value : null;
     }
 
     private static LocatorHint? ExtractLocatorHint(string message)
     {
-        var match = LocatorRegex.Match(message);
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return null;
+        }
+
+        var match = LocatorRegex().Match(message);
         if (!match.Success)
         {
             return null;
@@ -101,7 +106,7 @@ public sealed class SeleniumFailureParser
 
         var locations = new List<SourceLocation>();
 
-        foreach (Match match in SourceLocationRegex.Matches(stackTrace))
+        foreach (Match match in SourceLocationRegex().Matches(stackTrace))
         {
             var filePath = match.Groups["file"].Value;
 
@@ -115,4 +120,17 @@ public sealed class SeleniumFailureParser
 
         return locations;
     }
+
+    [GeneratedRegex(@"---->\s*(?<type>[\w\.]+)\s*:", RegexOptions.Compiled)]
+    private static partial Regex NestedExceptionRegex();
+
+    [GeneratedRegex(@"^\s*(?<type>[\w\.]+)\s*:", RegexOptions.Compiled)]
+    private static partial Regex TopLevelExceptionRegex();
+
+    [GeneratedRegex("""Unable to locate element:\s*\{"method":"(?<method>[^"]+)","selector":"(?<selector>[^"]+)"\}""",
+        RegexOptions.Compiled)]
+    private static partial Regex LocatorRegex();
+
+    [GeneratedRegex(@"in\s+(?<file>.*?\.cs):line\s+(?<line>\d+)", RegexOptions.Compiled)]
+    private static partial Regex SourceLocationRegex();
 }

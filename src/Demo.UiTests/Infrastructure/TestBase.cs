@@ -15,10 +15,11 @@ public abstract class TestBase
     public void BaseSetUp()
     {
         var pathProvider = new ArtifactPathProvider();
+        var repoPathResolver = new RepoPathResolver();
 
         Artifacts = new ArtifactWriter(pathProvider);
         _failureDiagnosticsWriter = new JsonFailureDiagnosticsWriter(pathProvider);
-        _failureParser = new SeleniumFailureParser();
+        _failureParser = new SeleniumFailureParser(repoPathResolver);
 
         Driver = WebDriverFactory.CreateChrome();
     }
@@ -48,7 +49,9 @@ public abstract class TestBase
                     outcomeStatus: result.Outcome.Status.ToString(),
                     outcomeLabel: result.Outcome.Label ?? string.Empty,
                     message: message,
-                    stackTrace: stackTrace);
+                    stackTrace: stackTrace,
+                    domSnapshotPath: domPath,
+                    screenshotPath: screenshotPath);
 
                 var diagnosticsPath = _failureDiagnosticsWriter.Write(diagnostics);
 

@@ -10,10 +10,15 @@ public sealed record FailureDiagnostics(
     string OutcomeLabel,
     string Message,
     string StackTrace,
-    string? ExceptionType,
+    string? OuterExceptionType,
+    string? RootCauseExceptionType,
     LocatorHint? LocatorHint,
     SourceLocation? PageObjectLocation,
-    SourceLocation? TestLocation);
+    SourceLocation? TestLocation,
+    string? RepoRelativePageObjectPath,
+    string? RepoRelativeTestPath,
+    string? DomSnapshotPath,
+    string? ScreenshotPath);
 
 public sealed record LocatorHint(
     string? Strategy,

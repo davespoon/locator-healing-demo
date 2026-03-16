@@ -2,7 +2,11 @@
 
 public sealed class RepairWorkflowState
 {
+    public required string DiagnosticsFilePath { get; init; }
     public required LocatorRepairIncident Incident { get; init; }
+
+    public string? ResolvedDomSnapshotPath { get; init; }
+    public string? ResolvedScreenshotPath { get; init; }
 
     public int AttemptCount { get; set; }
     public string? ExistingPullRequestUrl { get; set; }

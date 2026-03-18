@@ -6,7 +6,6 @@ public sealed class RepairWorkflowState
     public required LocatorRepairIncident Incident { get; init; }
 
     public string? ResolvedDomSnapshotPath { get; init; }
-    public string? ResolvedScreenshotPath { get; init; }
 
     public int AttemptCount { get; set; }
     public string? ExistingPullRequestUrl { get; set; }
@@ -14,4 +13,6 @@ public sealed class RepairWorkflowState
     public string? StopReason { get; set; }
 
     public List<CandidateLocator> Candidates { get; } = [];
+    public List<CandidateValidationResult> ValidationResults { get; } = [];
+    public CandidateValidationResult? SelectedCandidate { get; set; }
 }

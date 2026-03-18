@@ -1,62 +1,57 @@
-﻿using LocatorHealing.Agent.Contracts;
-using LocatorHealing.Agent.Infrastructure;
-using LocatorHealing.Agent.Policies;
-using LocatorHealing.Agent.Workflow;
-using Microsoft.Agents.AI.Workflows;
+﻿using LocatorHealing.Agent.Cli;
+using System.CommandLine;
 
-if (args.Length == 0)
+RootCommand rootCommand = BuildRootCommand();
+return rootCommand.Parse(args).Invoke();
+
+static RootCommand BuildRootCommand()
 {
-    Console.WriteLine("Usage:");
-    Console.WriteLine("  dotnet run --project src/LocatorHealing.Agent -- <path-to-failure-diagnostics.json>");
-    return;
+    var rootCommand = new RootCommand("Locator healing worker");
+    rootCommand.Subcommands.Add(BuildAnalyzeCommand());
+    return rootCommand;
 }
 
-var diagnosticsPath = args[0];
-
-var repoRootResolver = new RepoRootResolver();
-var diagnosticsReader = new DiagnosticsArtifactReader(repoRootResolver);
-var loopGuardPolicy = new LoopGuardPolicy();
-
-var failureIngest = new FailureIngestExecutor(diagnosticsReader);
-var loopGuard = new LoopGuardExecutor(loopGuardPolicy);
-
-var workflow = new WorkflowBuilder(failureIngest)
-    .AddEdge(failureIngest, loopGuard)
-    .WithOutputFrom(loopGuard)
-    .Build();
-
-await using var run = await InProcessExecution.RunStreamingAsync(workflow, input: diagnosticsPath);
-
-await foreach (var evt in run.WatchStreamAsync())
+static Command BuildAnalyzeCommand()
 {
-    switch (evt)
+    var diagnosticsFileArgument = new Argument<FileInfo>("failure-diagnostics-file")
     {
-        case WorkflowOutputEvent output when output.Data is RepairWorkflowState state:
-            PrintState(state);
-            break;
+        Description = "Path to a failure diagnostics JSON file produced by the test framework."
+    };
 
-        case WorkflowErrorEvent error:
-            Console.WriteLine("Workflow error:");
-            Console.WriteLine(error.Data);
-            break;
-    }
-}
-
-static void PrintState(RepairWorkflowState state)
-{
-    Console.WriteLine("Repair workflow state");
-    Console.WriteLine($"  Test: {state.Incident.TestName}");
-    Console.WriteLine($"  Page object: {state.Incident.RepoRelativePageObjectPath}");
-    Console.WriteLine($"  Selector: {state.Incident.LocatorSelector}");
-    Console.WriteLine($"  Root cause: {state.Incident.RootCauseExceptionType}");
-    Console.WriteLine($"  DOM snapshot: {state.ResolvedDomSnapshotPath}");
-
-    if (!string.IsNullOrWhiteSpace(state.StopReason))
+    diagnosticsFileArgument.Validators.Add(result =>
     {
-        Console.WriteLine($"  Stopped: {state.StopReason}");
-    }
-    else
+        var file = result.GetValue(diagnosticsFileArgument);
+
+        if (file is null)
+        {
+            result.AddError("A diagnostics JSON file path is required.");
+            return;
+        }
+
+        if (!file.Exists)
+        {
+            result.AddError($"Diagnostics file does not exist: {file.FullName}");
+            return;
+        }
+
+        if (!string.Equals(file.Extension, ".json", StringComparison.OrdinalIgnoreCase))
+        {
+            result.AddError("Diagnostics file must be a .json file.");
+        }
+    });
+
+    var analyzeCommand = new Command("analyze", "Analyze a failure bundle and generate validated locator candidates.")
     {
-        Console.WriteLine("  Ready for next workflow step.");
-    }
+        diagnosticsFileArgument
+    };
+
+    var handler = new AnalyzeFailureCommandHandler();
+
+    analyzeCommand.SetAction(parseResult =>
+    {
+        var diagnosticsFile = parseResult.GetValue(diagnosticsFileArgument);
+        return handler.Invoke(diagnosticsFile!);
+    });
+
+    return analyzeCommand;
 }

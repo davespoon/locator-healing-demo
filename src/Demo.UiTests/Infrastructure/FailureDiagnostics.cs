@@ -17,8 +17,7 @@ public sealed record FailureDiagnostics(
     SourceLocation? TestLocation,
     string? RepoRelativePageObjectPath,
     string? RepoRelativeTestPath,
-    string? DomSnapshotPath,
-    string? ScreenshotPath);
+    string? DomSnapshotPath);
 
 public sealed record LocatorHint(
     string? Strategy,

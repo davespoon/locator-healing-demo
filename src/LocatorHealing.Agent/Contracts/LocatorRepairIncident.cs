@@ -9,6 +9,7 @@ public sealed record LocatorRepairIncident(
     string? LocatorStrategy,
     string? LocatorSelector,
     string? RepoRelativePageObjectPath,
+    int? PageObjectLineNumber,
     string? RepoRelativeTestPath,
-    string? RepoRelativeDomSnapshotPath,
-    string? RepoRelativeScreenshotPath);
+    int? TestLineNumber,
+    string? RepoRelativeDomSnapshotPath);

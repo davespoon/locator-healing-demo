@@ -3,7 +3,7 @@ using LocatorHealing.Agent.Contracts;
 
 namespace LocatorHealing.Agent.Infrastructure;
 
-public sealed class DiagnosticsArtifactReader(RepoRootResolver repoRootResolver)
+public sealed class DiagnosticsArtifactReader
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -17,7 +17,7 @@ public sealed class DiagnosticsArtifactReader(RepoRootResolver repoRootResolver)
             throw new ArgumentException("Diagnostics file path is required.", nameof(diagnosticsFilePath));
         }
 
-        var resolvedDiagnosticsPath = ResolvePath(diagnosticsFilePath);
+        var resolvedDiagnosticsPath = Path.GetFullPath(diagnosticsFilePath);
 
         if (!File.Exists(resolvedDiagnosticsPath))
         {
@@ -33,11 +33,6 @@ public sealed class DiagnosticsArtifactReader(RepoRootResolver repoRootResolver)
             throw new InvalidOperationException("Diagnostics payload is missing TestName.");
         }
 
-        if (string.IsNullOrWhiteSpace(artifact.RepoRelativePageObjectPath))
-        {
-            throw new InvalidOperationException("Diagnostics payload is missing RepoRelativePageObjectPath.");
-        }
-
         var incident = new LocatorRepairIncident(
             TestName: artifact.TestName,
             TestFullName: artifact.TestFullName,
@@ -47,64 +42,45 @@ public sealed class DiagnosticsArtifactReader(RepoRootResolver repoRootResolver)
             LocatorStrategy: artifact.LocatorHint?.Strategy,
             LocatorSelector: artifact.LocatorHint?.Selector,
             RepoRelativePageObjectPath: artifact.RepoRelativePageObjectPath,
+            PageObjectLineNumber: artifact.PageObjectLocation?.LineNumber,
             RepoRelativeTestPath: artifact.RepoRelativeTestPath,
-            RepoRelativeDomSnapshotPath: artifact.DomSnapshotPath,
-            RepoRelativeScreenshotPath: artifact.ScreenshotPath);
+            TestLineNumber: artifact.TestLocation?.LineNumber,
+            RepoRelativeDomSnapshotPath: artifact.DomSnapshotPath);
 
         return new RepairWorkflowState
         {
-            DiagnosticsFilePath = NormalizeToRepoRelativeOrAbsolute(resolvedDiagnosticsPath),
+            DiagnosticsFilePath = resolvedDiagnosticsPath,
             Incident = incident,
-            ResolvedDomSnapshotPath = ResolveOptionalPath(artifact.DomSnapshotPath),
-            ResolvedScreenshotPath = ResolveOptionalPath(artifact.ScreenshotPath),
+            ResolvedDomSnapshotPath = ResolveArtifactPath(artifact.DomSnapshotPath, resolvedDiagnosticsPath),
             AttemptCount = 0
         };
     }
 
-    private string ResolvePath(string path)
+    private static string? ResolveArtifactPath(string? artifactPath, string resolvedDiagnosticsPath)
     {
-        if (Path.IsPathRooted(path))
-        {
-            return Path.GetFullPath(path);
-        }
-
-        var repoRoot = repoRootResolver.ResolveRepositoryRoot();
-        return Path.GetFullPath(Path.Combine(repoRoot, path));
-    }
-
-    private string? ResolveOptionalPath(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
+        if (string.IsNullOrWhiteSpace(artifactPath))
         {
             return null;
         }
 
-        return ResolvePath(path);
-    }
-
-    private string NormalizeToRepoRelativeOrAbsolute(string resolvedPath)
-    {
-        var repoRoot = repoRootResolver.ResolveRepositoryRoot();
-        var normalizedRoot = EnsureTrailingSeparator(Path.GetFullPath(repoRoot));
-        var normalizedPath = Path.GetFullPath(resolvedPath);
-
-        if (normalizedPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+        if (Path.IsPathRooted(artifactPath))
         {
-            return normalizedPath[normalizedRoot.Length..]
-                .Replace(Path.DirectorySeparatorChar, '/')
-                .Replace(Path.AltDirectorySeparatorChar, '/');
+            return Path.GetFullPath(artifactPath);
         }
 
-        return normalizedPath;
-    }
+        var diagnosticsDirectory = new DirectoryInfo(
+            Path.GetDirectoryName(resolvedDiagnosticsPath)
+            ?? throw new InvalidOperationException("Diagnostics file path does not contain a directory."));
 
-    private static string EnsureTrailingSeparator(string path)
-    {
-        if (path.EndsWith(Path.DirectorySeparatorChar) || path.EndsWith(Path.AltDirectorySeparatorChar))
+        for (DirectoryInfo? current = diagnosticsDirectory; current is not null; current = current.Parent)
         {
-            return path;
+            var candidate = Path.GetFullPath(Path.Combine(current.FullName, artifactPath));
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
         }
 
-        return path + Path.DirectorySeparatorChar;
+        return Path.GetFullPath(Path.Combine(diagnosticsDirectory.FullName, artifactPath));
     }
 }

@@ -12,8 +12,7 @@ public sealed partial class SeleniumFailureParser(RepoPathResolver repoPathResol
         string outcomeLabel,
         string message,
         string stackTrace,
-        string? domSnapshotPath,
-        string? screenshotPath)
+        string? domSnapshotPath)
     {
         var outerExceptionType = ExtractOuterExceptionType(message);
         var rootCauseExceptionType = ExtractRootCauseExceptionType(message);
@@ -31,7 +30,7 @@ public sealed partial class SeleniumFailureParser(RepoPathResolver repoPathResol
             location.FilePath.Contains("\\Tests\\", StringComparison.OrdinalIgnoreCase));
 
         return new FailureDiagnostics(
-            SchemaVersion: "1.1",
+            SchemaVersion: "1.2",
             GeneratedAtUtc: DateTimeOffset.UtcNow,
             TestName: testName,
             TestFullName: testFullName,
@@ -47,8 +46,7 @@ public sealed partial class SeleniumFailureParser(RepoPathResolver repoPathResol
             TestLocation: testLocation,
             RepoRelativePageObjectPath: repoPathResolver.ToRepoRelativePath(pageObjectLocation?.FilePath),
             RepoRelativeTestPath: repoPathResolver.ToRepoRelativePath(testLocation?.FilePath),
-            DomSnapshotPath: repoPathResolver.ToRepoRelativePath(domSnapshotPath) ?? domSnapshotPath,
-            ScreenshotPath: repoPathResolver.ToRepoRelativePath(screenshotPath) ?? screenshotPath);
+            DomSnapshotPath: repoPathResolver.ToRepoRelativePath(domSnapshotPath) ?? domSnapshotPath);
     }
 
     private static string? ExtractOuterExceptionType(string message)

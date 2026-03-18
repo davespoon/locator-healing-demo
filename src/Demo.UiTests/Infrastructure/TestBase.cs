@@ -39,7 +39,6 @@ public abstract class TestBase
                 var message = result.Message ?? string.Empty;
                 var stackTrace = result.StackTrace ?? string.Empty;
 
-                var screenshotPath = TryWriteScreenshot(testName);
                 var domPath = TryWriteDomSnapshot(testName);
 
                 var diagnostics = _failureParser.Parse(
@@ -50,12 +49,10 @@ public abstract class TestBase
                     outcomeLabel: result.Outcome.Label ?? string.Empty,
                     message: message,
                     stackTrace: stackTrace,
-                    domSnapshotPath: domPath,
-                    screenshotPath: screenshotPath);
+                    domSnapshotPath: domPath);
 
                 var diagnosticsPath = _failureDiagnosticsWriter.Write(diagnostics);
 
-                AddAttachmentIfExists(screenshotPath, "Failure screenshot");
                 AddAttachmentIfExists(domPath, "DOM snapshot");
                 AddAttachmentIfExists(diagnosticsPath, "Failure diagnostics");
             }
@@ -64,18 +61,6 @@ public abstract class TestBase
         {
             Driver.Quit();
             Driver.Dispose();
-        }
-    }
-
-    private string? TryWriteScreenshot(string testName)
-    {
-        try
-        {
-            return Artifacts.WriteScreenshot(testName, Driver);
-        }
-        catch
-        {
-            return null;
         }
     }
 

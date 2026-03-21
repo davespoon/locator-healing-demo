@@ -11,7 +11,7 @@ internal sealed class LocatorFailureCheckExecutor()
         IWorkflowContext context,
         CancellationToken cancellationToken = default)
     {
-        if (!string.IsNullOrWhiteSpace(state.StopReason))
+        if (state.IsStopped)
         {
             return ValueTask.FromResult(state);
         }

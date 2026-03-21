@@ -7,14 +7,12 @@ namespace LocatorHealing.Agent.Workflow;
 internal sealed class CandidateValidationExecutor(DomSnapshotValidator validator)
     : Executor<RepairWorkflowState, RepairWorkflowState>("CandidateValidation")
 {
-    private readonly DomSnapshotValidator _validator = validator;
-
     public override async ValueTask<RepairWorkflowState> HandleAsync(
         RepairWorkflowState state,
         IWorkflowContext context,
         CancellationToken cancellationToken = default)
     {
-        if (!string.IsNullOrWhiteSpace(state.StopReason))
+        if (state.IsStopped)
         {
             return state;
         }
@@ -25,25 +23,39 @@ internal sealed class CandidateValidationExecutor(DomSnapshotValidator validator
             return state;
         }
 
-        if (string.IsNullOrWhiteSpace(state.ResolvedDomSnapshotPath) || !File.Exists(state.ResolvedDomSnapshotPath))
+        if (!IsDomSnapshotAvailable(state))
         {
             state.StopReason = "DOM snapshot was not available for deterministic validation.";
             return state;
         }
 
-        var domSnapshotHtml = await File.ReadAllTextAsync(state.ResolvedDomSnapshotPath, cancellationToken);
-        var validationResults = await _validator.ValidateAsync(
+        var domSnapshotHtml = await File.ReadAllTextAsync(state.ResolvedDomSnapshotPath!, cancellationToken);
+        var validationResults = await validator.ValidateAsync(
             domSnapshotHtml,
             state.Incident.LocatorSelector,
             state.Candidates,
             cancellationToken);
 
+        PopulateValidationResults(state, validationResults);
+        SelectBestCandidate(state);
+
+        return state;
+    }
+
+    private static void PopulateValidationResults(
+        RepairWorkflowState state,
+        IReadOnlyList<CandidateValidationResult> validationResults)
+    {
         state.ValidationResults.Clear();
+
         foreach (var result in validationResults)
         {
             state.ValidationResults.Add(result);
         }
+    }
 
+    private static void SelectBestCandidate(RepairWorkflowState state)
+    {
         state.SelectedCandidate = state.ValidationResults
             .Where(result => result.IsValid)
             .OrderByDescending(result => result.Candidate.Confidence)
@@ -54,8 +66,6 @@ internal sealed class CandidateValidationExecutor(DomSnapshotValidator validator
         {
             state.StopReason = "No generated locator candidates passed deterministic validation.";
         }
-
-        return state;
     }
 
     private static int StrategyRank(string strategy) =>
@@ -67,4 +77,7 @@ internal sealed class CandidateValidationExecutor(DomSnapshotValidator validator
             "xpath" => 3,
             _ => 4
         };
+
+    private static bool IsDomSnapshotAvailable(RepairWorkflowState state) =>
+        !string.IsNullOrWhiteSpace(state.ResolvedDomSnapshotPath) && File.Exists(state.ResolvedDomSnapshotPath);
 }

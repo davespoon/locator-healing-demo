@@ -1,5 +1,4 @@
-﻿using System.Text;
-using LocatorHealing.Agent.Contracts;
+﻿using LocatorHealing.Agent.Contracts;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 
@@ -8,31 +7,26 @@ namespace LocatorHealing.Agent.Workflow;
 internal sealed class CandidateGenerationExecutor(AIAgent agent)
     : Executor<RepairWorkflowState, RepairWorkflowState>("CandidateGeneration")
 {
-    private readonly AIAgent _agent = agent;
+    private const int MaxCandidates = 3;
 
     public override async ValueTask<RepairWorkflowState> HandleAsync(
         RepairWorkflowState state,
         IWorkflowContext context,
         CancellationToken cancellationToken = default)
     {
-        if (!string.IsNullOrWhiteSpace(state.StopReason))
+        if (state.IsStopped)
         {
             return state;
         }
 
-        if (string.IsNullOrWhiteSpace(state.ResolvedDomSnapshotPath) || !File.Exists(state.ResolvedDomSnapshotPath))
+        if (!IsDomSnapshotAvailable(state))
         {
             state.StopReason = "DOM snapshot was not available for candidate generation.";
             return state;
         }
 
-        var domSnapshotHtml = await File.ReadAllTextAsync(state.ResolvedDomSnapshotPath, cancellationToken);
-        var prompt = BuildPrompt(state, domSnapshotHtml);
-
-        AgentResponse<LocatorCandidateGenerationResult> response =
-            await _agent.RunAsync<LocatorCandidateGenerationResult>(prompt, cancellationToken: cancellationToken);
-
-        var result = response.Result;
+        var domSnapshotHtml = await File.ReadAllTextAsync(state.ResolvedDomSnapshotPath!, cancellationToken);
+        var result = await InvokeAgentAsync(state, domSnapshotHtml, cancellationToken);
 
         if (result is null)
         {
@@ -46,22 +40,7 @@ internal sealed class CandidateGenerationExecutor(AIAgent agent)
             return state;
         }
 
-        state.Candidates.Clear();
-
-        foreach (var candidate in result.Candidates.Take(3))
-        {
-            state.Candidates.Add(new CandidateLocator(
-                Strategy: candidate.Strategy,
-                Value: candidate.Value,
-                Reason: candidate.Reason,
-                Confidence: candidate.Confidence,
-                SemanticChecks: new CandidateSemanticChecks(
-                    ExpectedTag: candidate.SemanticChecks.ExpectedTag,
-                    ExpectedText: candidate.SemanticChecks.ExpectedText,
-                    ExpectedRole: candidate.SemanticChecks.ExpectedRole,
-                    ExpectedNearbyLabel: candidate.SemanticChecks.ExpectedNearbyLabel),
-                RiskFlags: candidate.RiskFlags));
-        }
+        PopulateCandidates(state, result);
 
         if (state.Candidates.Count == 0)
         {
@@ -71,35 +50,69 @@ internal sealed class CandidateGenerationExecutor(AIAgent agent)
         return state;
     }
 
-    private static string BuildPrompt(
+    private async Task<LocatorCandidateGenerationResult?> InvokeAgentAsync(
         RepairWorkflowState state,
-        string domSnapshotHtml)
+        string domSnapshotHtml,
+        CancellationToken cancellationToken)
     {
-        var sb = new StringBuilder();
-
-        sb.AppendLine("Confirmed locator failure.");
-        sb.AppendLine("Use only the provided failure diagnostics and DOM snapshot.");
-        sb.AppendLine(
-            "Do not assume access to repository source files or page object code beyond the provided diagnostics.");
-        sb.AppendLine();
-        sb.AppendLine("Failure diagnostics:");
-        sb.AppendLine($"- TestName: {state.Incident.TestName}");
-        sb.AppendLine($"- TestFullName: {state.Incident.TestFullName}");
-        sb.AppendLine($"- Url: {state.Incident.Url}");
-        sb.AppendLine($"- OuterExceptionType: {state.Incident.OuterExceptionType}");
-        sb.AppendLine($"- RootCauseExceptionType: {state.Incident.RootCauseExceptionType}");
-        sb.AppendLine($"- LocatorStrategy: {state.Incident.LocatorStrategy}");
-        sb.AppendLine($"- BrokenSelector: {state.Incident.LocatorSelector}");
-        sb.AppendLine($"- PageObjectPath: {state.Incident.RepoRelativePageObjectPath}");
-        sb.AppendLine($"- PageObjectLineNumber: {state.Incident.PageObjectLineNumber}");
-        sb.AppendLine($"- TestPath: {state.Incident.RepoRelativeTestPath}");
-        sb.AppendLine($"- TestLineNumber: {state.Incident.TestLineNumber}");
-        sb.AppendLine();
-        sb.AppendLine("Return structured output only.");
-        sb.AppendLine();
-        sb.AppendLine("DOM snapshot:");
-        sb.AppendLine(domSnapshotHtml);
-
-        return sb.ToString();
+        var prompt = BuildPrompt(state, domSnapshotHtml);
+        var response = await agent.RunAsync<LocatorCandidateGenerationResult>(
+            prompt, cancellationToken: cancellationToken);
+        return response.Result;
     }
+
+    private static void PopulateCandidates(RepairWorkflowState state, LocatorCandidateGenerationResult result)
+    {
+        state.Candidates.Clear();
+
+        foreach (var proposal in result.Candidates.Take(MaxCandidates))
+        {
+            state.Candidates.Add(MapToCandidateLocator(proposal));
+        }
+    }
+
+    private static CandidateLocator MapToCandidateLocator(LocatorCandidateProposal proposal) =>
+        new(
+            Strategy: proposal.Strategy,
+            Value: proposal.Value,
+            Reason: proposal.Reason,
+            Confidence: proposal.Confidence,
+            SemanticChecks: new CandidateSemanticChecks(
+                ExpectedTag: proposal.SemanticChecks.ExpectedTag,
+                ExpectedText: proposal.SemanticChecks.ExpectedText,
+                ExpectedRole: proposal.SemanticChecks.ExpectedRole,
+                ExpectedNearbyLabel: proposal.SemanticChecks.ExpectedNearbyLabel),
+            RiskFlags: proposal.RiskFlags);
+
+    private static string BuildPrompt(RepairWorkflowState state, string domSnapshotHtml)
+    {
+        var incident = state.Incident;
+
+        return $"""
+                Confirmed locator failure.
+                Use only the provided failure diagnostics and DOM snapshot.
+                Do not assume access to repository source files or page object code beyond the provided diagnostics.
+
+                Failure diagnostics:
+                - TestName: {incident.TestName}
+                - TestFullName: {incident.TestFullName}
+                - Url: {incident.Url}
+                - OuterExceptionType: {incident.OuterExceptionType}
+                - RootCauseExceptionType: {incident.RootCauseExceptionType}
+                - LocatorStrategy: {incident.LocatorStrategy}
+                - BrokenSelector: {incident.LocatorSelector}
+                - PageObjectPath: {incident.RepoRelativePageObjectPath}
+                - PageObjectLineNumber: {incident.PageObjectLineNumber}
+                - TestPath: {incident.RepoRelativeTestPath}
+                - TestLineNumber: {incident.TestLineNumber}
+
+                Return structured output only.
+
+                DOM snapshot:
+                {domSnapshotHtml}
+                """;
+    }
+
+    private static bool IsDomSnapshotAvailable(RepairWorkflowState state) =>
+        !string.IsNullOrWhiteSpace(state.ResolvedDomSnapshotPath) && File.Exists(state.ResolvedDomSnapshotPath);
 }

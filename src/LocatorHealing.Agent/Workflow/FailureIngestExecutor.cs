@@ -4,15 +4,12 @@ using Microsoft.Agents.AI.Workflows;
 
 namespace LocatorHealing.Agent.Workflow;
 
-internal sealed class FailureIngestExecutor(DiagnosticsArtifactReader reader)
-    : Executor<string, RepairWorkflowState>("FailureIngest")
+internal sealed partial class FailureIngestExecutor(DiagnosticsArtifactReader reader) : Executor("FailureIngest")
 {
-    public override ValueTask<RepairWorkflowState> HandleAsync(
-        string diagnosticsFilePath,
-        IWorkflowContext context,
-        CancellationToken cancellationToken = default)
+    [MessageHandler]
+    private ValueTask<RepairWorkflowState> HandleAsync(string diagnosticsFilePath, IWorkflowContext context)
     {
-        var state = reader.Read(diagnosticsFilePath);
+        RepairWorkflowState state = reader.Read(diagnosticsFilePath);
         return ValueTask.FromResult(state);
     }
 }

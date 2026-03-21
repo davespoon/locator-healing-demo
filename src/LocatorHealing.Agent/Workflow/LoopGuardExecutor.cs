@@ -4,13 +4,10 @@ using Microsoft.Agents.AI.Workflows;
 
 namespace LocatorHealing.Agent.Workflow;
 
-internal sealed class LoopGuardExecutor(LoopGuardPolicy loopGuardPolicy)
-    : Executor<RepairWorkflowState, RepairWorkflowState>("LoopGuard")
+internal sealed partial class LoopGuardExecutor(LoopGuardPolicy loopGuardPolicy) : Executor("LoopGuard")
 {
-    public override ValueTask<RepairWorkflowState> HandleAsync(
-        RepairWorkflowState state,
-        IWorkflowContext context,
-        CancellationToken cancellationToken = default)
+    [MessageHandler]
+    private ValueTask<RepairWorkflowState> HandleAsync(RepairWorkflowState state, IWorkflowContext context)
     {
         if (!loopGuardPolicy.CanProceed(state, DateTimeOffset.UtcNow, out var reason))
         {

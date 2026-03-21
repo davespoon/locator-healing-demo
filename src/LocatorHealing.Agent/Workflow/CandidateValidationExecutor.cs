@@ -4,13 +4,10 @@ using Microsoft.Agents.AI.Workflows;
 
 namespace LocatorHealing.Agent.Workflow;
 
-internal sealed class CandidateValidationExecutor(DomSnapshotValidator validator)
-    : Executor<RepairWorkflowState, RepairWorkflowState>("CandidateValidation")
+internal sealed partial class CandidateValidationExecutor(DomSnapshotValidator validator) : Executor("CandidateValidation")
 {
-    public override async ValueTask<RepairWorkflowState> HandleAsync(
-        RepairWorkflowState state,
-        IWorkflowContext context,
-        CancellationToken cancellationToken = default)
+    [MessageHandler]
+    private async ValueTask<RepairWorkflowState> HandleAsync(RepairWorkflowState state, IWorkflowContext context)
     {
         if (state.IsStopped)
         {
@@ -29,12 +26,11 @@ internal sealed class CandidateValidationExecutor(DomSnapshotValidator validator
             return state;
         }
 
-        var domSnapshotHtml = await File.ReadAllTextAsync(state.ResolvedDomSnapshotPath!, cancellationToken);
+        var domSnapshotHtml = await File.ReadAllTextAsync(state.ResolvedDomSnapshotPath!);
         var validationResults = await validator.ValidateAsync(
             domSnapshotHtml,
             state.Incident.LocatorSelector,
-            state.Candidates,
-            cancellationToken);
+            state.Candidates);
 
         PopulateValidationResults(state, validationResults);
         SelectBestCandidate(state);

@@ -3,13 +3,10 @@ using Microsoft.Agents.AI.Workflows;
 
 namespace LocatorHealing.Agent.Workflow;
 
-internal sealed class LocatorFailureCheckExecutor()
-    : Executor<RepairWorkflowState, RepairWorkflowState>("LocatorFailureCheck")
+internal sealed partial class LocatorFailureCheckExecutor() : Executor("LocatorFailureCheck")
 {
-    public override ValueTask<RepairWorkflowState> HandleAsync(
-        RepairWorkflowState state,
-        IWorkflowContext context,
-        CancellationToken cancellationToken = default)
+    [MessageHandler]
+    private ValueTask<RepairWorkflowState> HandleAsync(RepairWorkflowState state, IWorkflowContext context)
     {
         if (state.IsStopped)
         {

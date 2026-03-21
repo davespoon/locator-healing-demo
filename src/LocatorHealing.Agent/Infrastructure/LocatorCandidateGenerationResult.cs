@@ -1,6 +1,6 @@
-﻿namespace LocatorHealing.Agent.Contracts;
+namespace LocatorHealing.Agent.Infrastructure;
 
-public sealed class LocatorCandidateGenerationResult
+internal sealed class LocatorCandidateGenerationResult
 {
     public string SchemaVersion { get; set; } = "1.0";
     public string Decision { get; set; } = string.Empty; // candidates | insufficient_evidence
@@ -8,7 +8,7 @@ public sealed class LocatorCandidateGenerationResult
     public List<LocatorCandidateProposal> Candidates { get; set; } = [];
 }
 
-public sealed class LocatorCandidateProposal
+internal sealed class LocatorCandidateProposal
 {
     public string Strategy { get; set; } = string.Empty; // css selector | xpath | id | name
     public string Value { get; set; } = string.Empty;
@@ -18,7 +18,7 @@ public sealed class LocatorCandidateProposal
     public List<string> RiskFlags { get; set; } = [];
 }
 
-public sealed class LocatorSemanticChecks
+internal sealed class LocatorSemanticChecks
 {
     public string? ExpectedTag { get; set; }
     public string? ExpectedText { get; set; }

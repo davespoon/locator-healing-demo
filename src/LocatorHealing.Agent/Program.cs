@@ -1,6 +1,3 @@
-﻿using LocatorHealing.Agent.Cli;
-using System.CommandLine;
+﻿using LocatorHealing.Agent.Application;
 
-var rootCommand = new RootCommand("Locator healing tool");
-rootCommand.Subcommands.Add(AnalyzeCommandDefinition.Create());
-return rootCommand.Parse(args).Invoke();
+return await LocatorHealingAgentApplication.RunAsync(args);

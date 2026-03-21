@@ -1,6 +1,6 @@
-﻿namespace LocatorHealing.Agent.Contracts;
+namespace LocatorHealing.Agent.Infrastructure;
 
-public sealed record FailureDiagnosticsArtifact(
+internal sealed record FailureDiagnosticsArtifact(
     string SchemaVersion,
     DateTimeOffset GeneratedAtUtc,
     string TestName,
@@ -20,10 +20,10 @@ public sealed record FailureDiagnosticsArtifact(
     string? DomSnapshotPath,
     string? ScreenshotPath);
 
-public sealed record LocatorHintArtifact(
+internal sealed record LocatorHintArtifact(
     string? Strategy,
     string? Selector);
 
-public sealed record SourceLocationArtifact(
+internal sealed record SourceLocationArtifact(
     string FilePath,
     int LineNumber);

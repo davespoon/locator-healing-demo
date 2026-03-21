@@ -5,7 +5,7 @@ namespace LocatorHealing.Agent.Cli;
 
 internal static class AnalyzeCommandDefinition
 {
-    public static Command Create()
+    public static Command Create(AnalyzeFailureCommandHandler handler)
     {
         var diagnosticsFileArgument = CreateDiagnosticsFileArgument();
 
@@ -15,7 +15,7 @@ internal static class AnalyzeCommandDefinition
                 diagnosticsFileArgument
             };
 
-        BindHandler(analyzeCommand, diagnosticsFileArgument);
+        BindHandler(analyzeCommand, diagnosticsFileArgument, handler);
 
         return analyzeCommand;
     }
@@ -54,10 +54,11 @@ internal static class AnalyzeCommandDefinition
         }
     }
 
-    private static void BindHandler(Command command, Argument<FileInfo> diagnosticsFileArgument)
+    private static void BindHandler(
+        Command command,
+        Argument<FileInfo> diagnosticsFileArgument,
+        AnalyzeFailureCommandHandler handler)
     {
-        var handler = new AnalyzeFailureCommandHandler();
-
         command.SetAction(async parseResult =>
         {
             var diagnosticsFile = parseResult.GetValue(diagnosticsFileArgument);

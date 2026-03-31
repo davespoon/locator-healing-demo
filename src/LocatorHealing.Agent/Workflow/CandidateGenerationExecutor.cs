@@ -10,7 +10,10 @@ internal sealed partial class CandidateGenerationExecutor(AIAgent agent) : Execu
     private const int MaxCandidates = 3;
 
     [MessageHandler]
-    private async ValueTask<RepairWorkflowState> HandleAsync(RepairWorkflowState state, IWorkflowContext context)
+    private async ValueTask<RepairWorkflowState> HandleAsync(
+        RepairWorkflowState state,
+        IWorkflowContext context,
+        CancellationToken cancellationToken = default)
     {
         if (state.IsStopped)
         {
@@ -23,8 +26,8 @@ internal sealed partial class CandidateGenerationExecutor(AIAgent agent) : Execu
             return state;
         }
 
-        var domSnapshotHtml = await File.ReadAllTextAsync(state.ResolvedDomSnapshotPath!);
-        var result = await InvokeAgentAsync(state, domSnapshotHtml);
+        var domSnapshotHtml = await File.ReadAllTextAsync(state.ResolvedDomSnapshotPath!, cancellationToken);
+        var result = await InvokeAgentAsync(state, domSnapshotHtml, cancellationToken);
 
         if (result is null)
         {
@@ -50,10 +53,12 @@ internal sealed partial class CandidateGenerationExecutor(AIAgent agent) : Execu
 
     private async Task<LocatorCandidateGenerationResult?> InvokeAgentAsync(
         RepairWorkflowState state,
-        string domSnapshotHtml)
+        string domSnapshotHtml,
+        CancellationToken cancellationToken)
     {
         var prompt = CandidatePromptBuilder.Build(state, domSnapshotHtml);
-        var response = await agent.RunAsync<LocatorCandidateGenerationResult>(prompt);
+        var response =
+            await agent.RunAsync<LocatorCandidateGenerationResult>(prompt, cancellationToken: cancellationToken);
         return response.Result;
     }
 

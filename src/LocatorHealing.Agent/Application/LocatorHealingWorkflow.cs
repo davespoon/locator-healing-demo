@@ -12,7 +12,7 @@ internal static class LocatorHealingWorkflow
     {
         var diagnosticsReader = new DiagnosticsArtifactReader();
         var loopGuardPolicy = new LoopGuardPolicy(TimeProvider.System);
-        var openAiAgentFactory = new OpenAiCandidateAgentFactory();
+        var openAiAgentFactory = new CandidateAgentFactory();
 
         var failureIngest = new FailureIngestExecutor(diagnosticsReader);
         var loopGuard = new LoopGuardExecutor(loopGuardPolicy);

@@ -7,7 +7,8 @@ namespace LocatorHealing.Agent.Workflow;
 internal sealed partial class LoopGuardExecutor(LoopGuardPolicy loopGuardPolicy) : Executor("LoopGuard")
 {
     [MessageHandler]
-    private ValueTask<RepairWorkflowState> HandleAsync(RepairWorkflowState state, IWorkflowContext context)
+    private ValueTask<RepairWorkflowState> HandleAsync(RepairWorkflowState state, IWorkflowContext context,
+        CancellationToken cancellationToken = default)
     {
         if (!loopGuardPolicy.CanProceed(state, out var reason))
         {

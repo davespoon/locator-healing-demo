@@ -3,7 +3,9 @@ using System.CommandLine;
 
 namespace LocatorHealing.Agent.Application;
 
-public sealed class LocatorHealingAgentApplication(AnalyzeFailureCommandHandler analyzeFailureCommandHandler)
+public sealed class LocatorHealingAgentApplication(
+    AnalyzeFailureCommandHandler analyzeFailureCommandHandler,
+    IngestCommandHandler ingestCommandHandler)
 {
     public static Task<int> RunAsync(string[] args)
     {
@@ -15,7 +17,8 @@ public sealed class LocatorHealingAgentApplication(AnalyzeFailureCommandHandler 
     {
         var workflow = LocatorHealingWorkflow.Create();
         var analyzeFailureCommandHandler = new AnalyzeFailureCommandHandler(workflow);
-        return new LocatorHealingAgentApplication(analyzeFailureCommandHandler);
+        var ingestCommandHandler = new IngestCommandHandler();
+        return new LocatorHealingAgentApplication(analyzeFailureCommandHandler, ingestCommandHandler);
     }
 
     private Task<int> InvokeAsync(string[] args)
@@ -28,7 +31,8 @@ public sealed class LocatorHealingAgentApplication(AnalyzeFailureCommandHandler 
     {
         var rootCommand = new RootCommand("Locator healing tool")
         {
-            AnalyzeCommandDefinition.Create(analyzeFailureCommandHandler)
+            AnalyzeCommandDefinition.Create(analyzeFailureCommandHandler),
+            IngestCommandDefinition.Create(ingestCommandHandler)
         };
 
         return rootCommand;

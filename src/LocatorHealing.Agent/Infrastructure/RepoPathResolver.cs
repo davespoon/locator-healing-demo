@@ -1,6 +1,6 @@
-﻿namespace Demo.UiTests.Infrastructure;
+namespace LocatorHealing.Agent.Infrastructure;
 
-public sealed class RepoPathResolver
+internal sealed class RepoPathResolver
 {
     private readonly string? _repositoryRoot = FindRepositoryRoot();
 

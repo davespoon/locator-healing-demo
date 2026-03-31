@@ -12,4 +12,11 @@ public sealed class ArtifactWriter(ArtifactPathProvider pathProvider)
         File.WriteAllText(path, html, Encoding.UTF8);
         return path;
     }
+
+    public string WriteScreenshot(string testName, byte[] pngBytes)
+    {
+        var path = _pathProvider.CreateArtifactPath("screenshots", testName, "png");
+        File.WriteAllBytes(path, pngBytes);
+        return path;
+    }
 }

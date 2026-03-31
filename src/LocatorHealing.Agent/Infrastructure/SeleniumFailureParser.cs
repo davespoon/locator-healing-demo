@@ -1,23 +1,15 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 
-namespace Demo.UiTests.Infrastructure;
+namespace LocatorHealing.Agent.Infrastructure;
 
-public sealed partial class SeleniumFailureParser(RepoPathResolver repoPathResolver)
+internal sealed partial class SeleniumFailureParser(RepoPathResolver repoPathResolver)
 {
-    public FailureDiagnostics Parse(
-        string testName,
-        string testFullName,
-        string url,
-        string outcomeStatus,
-        string outcomeLabel,
-        string message,
-        string stackTrace,
-        string? domSnapshotPath)
+    public FailureDiagnosticsArtifact Parse(TestFailureInfo failure)
     {
-        var outerExceptionType = ExtractOuterExceptionType(message);
-        var rootCauseExceptionType = ExtractRootCauseExceptionType(message);
-        var locatorHint = ExtractLocatorHint(message);
-        var sourceLocations = ExtractSourceLocations(stackTrace);
+        var outerExceptionType = ExtractOuterExceptionType(failure.Message);
+        var rootCauseExceptionType = ExtractRootCauseExceptionType(failure.Message);
+        var locatorHint = ExtractLocatorHint(failure.Message);
+        var sourceLocations = ExtractSourceLocations(failure.StackTrace);
 
         var pageObjectLocation = sourceLocations.FirstOrDefault(location =>
             location.FilePath.EndsWith("Page.cs", StringComparison.OrdinalIgnoreCase) ||
@@ -29,16 +21,16 @@ public sealed partial class SeleniumFailureParser(RepoPathResolver repoPathResol
             location.FilePath.Contains("/Tests/", StringComparison.OrdinalIgnoreCase) ||
             location.FilePath.Contains("\\Tests\\", StringComparison.OrdinalIgnoreCase));
 
-        return new FailureDiagnostics(
+        return new FailureDiagnosticsArtifact(
             SchemaVersion: "1.2",
             GeneratedAtUtc: DateTimeOffset.UtcNow,
-            TestName: testName,
-            TestFullName: testFullName,
-            Url: url,
-            OutcomeStatus: outcomeStatus,
-            OutcomeLabel: outcomeLabel,
-            Message: message,
-            StackTrace: stackTrace,
+            TestName: failure.TestName,
+            TestFullName: failure.TestFullName,
+            Url: string.Empty,
+            OutcomeStatus: "Failed",
+            OutcomeLabel: string.Empty,
+            Message: failure.Message,
+            StackTrace: failure.StackTrace,
             OuterExceptionType: outerExceptionType,
             RootCauseExceptionType: rootCauseExceptionType,
             LocatorHint: locatorHint,
@@ -46,7 +38,8 @@ public sealed partial class SeleniumFailureParser(RepoPathResolver repoPathResol
             TestLocation: testLocation,
             RepoRelativePageObjectPath: repoPathResolver.ToRepoRelativePath(pageObjectLocation?.FilePath),
             RepoRelativeTestPath: repoPathResolver.ToRepoRelativePath(testLocation?.FilePath),
-            DomSnapshotPath: repoPathResolver.ToRepoRelativePath(domSnapshotPath) ?? domSnapshotPath);
+            DomSnapshotPath: repoPathResolver.ToRepoRelativePath(failure.DomSnapshotPath) ?? failure.DomSnapshotPath,
+            ScreenshotPath: repoPathResolver.ToRepoRelativePath(failure.ScreenshotPath) ?? failure.ScreenshotPath);
     }
 
     private static string? ExtractOuterExceptionType(string message)
@@ -77,7 +70,7 @@ public sealed partial class SeleniumFailureParser(RepoPathResolver repoPathResol
         return topLevelMatch.Success ? topLevelMatch.Groups["type"].Value : null;
     }
 
-    private static LocatorHint? ExtractLocatorHint(string message)
+    private static LocatorHintArtifact? ExtractLocatorHint(string message)
     {
         if (string.IsNullOrWhiteSpace(message))
         {
@@ -90,19 +83,19 @@ public sealed partial class SeleniumFailureParser(RepoPathResolver repoPathResol
             return null;
         }
 
-        return new LocatorHint(
+        return new LocatorHintArtifact(
             Strategy: match.Groups["method"].Value,
             Selector: match.Groups["selector"].Value);
     }
 
-    private static IReadOnlyList<SourceLocation> ExtractSourceLocations(string stackTrace)
+    private static IReadOnlyList<SourceLocationArtifact> ExtractSourceLocations(string stackTrace)
     {
         if (string.IsNullOrWhiteSpace(stackTrace))
         {
             return [];
         }
 
-        var locations = new List<SourceLocation>();
+        var locations = new List<SourceLocationArtifact>();
 
         foreach (Match match in SourceLocationRegex().Matches(stackTrace))
         {
@@ -113,7 +106,7 @@ public sealed partial class SeleniumFailureParser(RepoPathResolver repoPathResol
                 continue;
             }
 
-            locations.Add(new SourceLocation(filePath, lineNumber));
+            locations.Add(new SourceLocationArtifact(filePath, lineNumber));
         }
 
         return locations;

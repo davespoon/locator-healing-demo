@@ -13,14 +13,12 @@ internal static class LocatorHealingWorkflow
         var diagnosticsReader = new DiagnosticsArtifactReader();
         var loopGuardPolicy = new LoopGuardPolicy();
         var openAiAgentFactory = new OpenAiCandidateAgentFactory();
-        var domSnapshotValidator = new DomSnapshotValidator();
 
         var failureIngest = new FailureIngestExecutor(diagnosticsReader);
         var loopGuard = new LoopGuardExecutor(loopGuardPolicy);
         var locatorFailureCheck = new LocatorFailureCheckExecutor();
         var stop = new StopExecutor();
         var candidateGeneration = new CandidateGenerationExecutor(openAiAgentFactory.Create());
-        var candidateValidation = new CandidateValidationExecutor(domSnapshotValidator);
 
         return new WorkflowBuilder(failureIngest)
             .AddEdge(failureIngest, loopGuard)
@@ -28,8 +26,7 @@ internal static class LocatorHealingWorkflow
             .AddEdge(loopGuard, locatorFailureCheck, condition: ShouldContinue())
             .AddEdge(locatorFailureCheck, stop, condition: ShouldStop())
             .AddEdge(locatorFailureCheck, candidateGeneration, condition: ShouldContinue())
-            .AddEdge(candidateGeneration, candidateValidation)
-            .WithOutputFrom(stop, candidateValidation)
+            .WithOutputFrom(stop, candidateGeneration)
             .Build();
     }
 

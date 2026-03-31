@@ -55,3 +55,4 @@ nunit-*.xml
 
 /.vs
 *.user
+/src/LocatorHealing.Agent/Properties/launchSettings.json

@@ -10,8 +10,6 @@ internal static class RepairWorkflowStatePrinter
 
         PrintIncident(output, state);
         PrintCandidates(output, state.Candidates);
-        PrintValidationResults(output, state.ValidationResults);
-        PrintSelectedCandidate(output, state.SelectedCandidate);
         PrintOutcome(output, state.StopReason);
     }
 
@@ -36,28 +34,6 @@ internal static class RepairWorkflowStatePrinter
                 $"    - {candidate.Strategy}: {candidate.Value} (confidence {candidate.Confidence:0.00})");
             output.WriteLine($"      {candidate.Reason}");
         }
-    }
-
-    private static void PrintValidationResults(TextWriter output, List<CandidateValidationResult> results)
-    {
-        if (results.Count == 0) return;
-
-        output.WriteLine($"  Validation results: {results.Count}");
-        foreach (var result in results)
-        {
-            output.WriteLine(
-                $"    - {(result.IsValid ? "VALID" : "INVALID")}: {result.Candidate.Value}");
-            output.WriteLine($"      {result.Summary}");
-        }
-    }
-
-    private static void PrintSelectedCandidate(TextWriter output, CandidateValidationResult? selected)
-    {
-        if (selected is null) return;
-
-        output.WriteLine("  Selected candidate:");
-        output.WriteLine(
-            $"    {selected.Candidate.Strategy}: {selected.Candidate.Value}");
     }
 
     private static void PrintOutcome(TextWriter output, string? stopReason)

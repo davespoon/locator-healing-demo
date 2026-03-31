@@ -15,6 +15,4 @@ public sealed class RepairWorkflowState
     public bool IsStopped => !string.IsNullOrWhiteSpace(StopReason);
 
     public List<CandidateLocator> Candidates { get; } = [];
-    public List<CandidateValidationResult> ValidationResults { get; } = [];
-    public CandidateValidationResult? SelectedCandidate { get; set; }
 }

@@ -52,7 +52,7 @@ internal sealed partial class CandidateGenerationExecutor(AIAgent agent) : Execu
         RepairWorkflowState state,
         string domSnapshotHtml)
     {
-        var prompt = BuildPrompt(state, domSnapshotHtml);
+        var prompt = CandidatePromptBuilder.Build(state, domSnapshotHtml);
         var response = await agent.RunAsync<LocatorCandidateGenerationResult>(prompt);
         return response.Result;
     }
@@ -79,35 +79,6 @@ internal sealed partial class CandidateGenerationExecutor(AIAgent agent) : Execu
                 ExpectedRole: proposal.SemanticChecks.ExpectedRole,
                 ExpectedNearbyLabel: proposal.SemanticChecks.ExpectedNearbyLabel),
             RiskFlags: proposal.RiskFlags);
-
-    private static string BuildPrompt(RepairWorkflowState state, string domSnapshotHtml)
-    {
-        var incident = state.Incident;
-
-        return $"""
-                Confirmed locator failure.
-                Use only the provided failure diagnostics and DOM snapshot.
-                Do not assume access to repository source files or page object code beyond the provided diagnostics.
-
-                Failure diagnostics:
-                - TestName: {incident.TestName}
-                - TestFullName: {incident.TestFullName}
-                - Url: {incident.Url}
-                - OuterExceptionType: {incident.OuterExceptionType}
-                - RootCauseExceptionType: {incident.RootCauseExceptionType}
-                - LocatorStrategy: {incident.LocatorStrategy}
-                - BrokenSelector: {incident.LocatorSelector}
-                - PageObjectPath: {incident.RepoRelativePageObjectPath}
-                - PageObjectLineNumber: {incident.PageObjectLineNumber}
-                - TestPath: {incident.RepoRelativeTestPath}
-                - TestLineNumber: {incident.TestLineNumber}
-
-                Return structured output only.
-
-                DOM snapshot:
-                {domSnapshotHtml}
-                """;
-    }
 
     private static bool IsDomSnapshotAvailable(RepairWorkflowState state) =>
         !string.IsNullOrWhiteSpace(state.ResolvedDomSnapshotPath) && File.Exists(state.ResolvedDomSnapshotPath);

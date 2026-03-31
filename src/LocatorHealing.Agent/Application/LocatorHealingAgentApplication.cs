@@ -1,40 +1,32 @@
 using LocatorHealing.Agent.Cli;
+using LocatorHealing.Agent.Infrastructure;
 using System.CommandLine;
 
 namespace LocatorHealing.Agent.Application;
 
-public sealed class LocatorHealingAgentApplication(
-    AnalyzeFailureCommandHandler analyzeFailureCommandHandler,
-    IngestCommandHandler ingestCommandHandler)
+public static class LocatorHealingAgentApplication
 {
     public static Task<int> RunAsync(string[] args)
-    {
-        var application = Create();
-        return application.InvokeAsync(args);
-    }
-
-    private static LocatorHealingAgentApplication Create()
-    {
-        var workflow = LocatorHealingWorkflow.Create();
-        var analyzeFailureCommandHandler = new AnalyzeFailureCommandHandler(workflow);
-        var ingestCommandHandler = new IngestCommandHandler();
-        return new LocatorHealingAgentApplication(analyzeFailureCommandHandler, ingestCommandHandler);
-    }
-
-    private Task<int> InvokeAsync(string[] args)
     {
         var rootCommand = BuildRootCommand();
         return rootCommand.Parse(args).InvokeAsync();
     }
 
-    private RootCommand BuildRootCommand()
+    private static RootCommand BuildRootCommand()
     {
-        var rootCommand = new RootCommand("Locator healing tool")
-        {
-            AnalyzeCommandDefinition.Create(analyzeFailureCommandHandler),
-            IngestCommandDefinition.Create(ingestCommandHandler)
-        };
+        var workflow = LocatorHealingWorkflow.Create();
+        var analyzeHandler = new AnalyzeFailureCommandHandler(workflow);
 
-        return rootCommand;
+        var resultParser = new NUnitResultParser();
+        var repoPathResolver = new RepoPathResolver();
+        var failureParser = new SeleniumFailureParser(repoPathResolver);
+        var diagnosticsWriter = new JsonFailureDiagnosticsWriter();
+        var ingestHandler = new IngestCommandHandler(resultParser, failureParser, diagnosticsWriter);
+
+        return new RootCommand("Locator healing tool")
+        {
+            AnalyzeCommandDefinition.Create(analyzeHandler),
+            IngestCommandDefinition.Create(ingestHandler)
+        };
     }
 }

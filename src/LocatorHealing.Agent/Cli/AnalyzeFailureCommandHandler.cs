@@ -4,7 +4,7 @@ using AgentWorkflow = Microsoft.Agents.AI.Workflows.Workflow;
 
 namespace LocatorHealing.Agent.Cli;
 
-public sealed class AnalyzeFailureCommandHandler(AgentWorkflow workflow)
+internal sealed class AnalyzeFailureCommandHandler(AgentWorkflow workflow)
 {
     public async Task<int> InvokeAsync(FileInfo diagnosticsFile)
     {

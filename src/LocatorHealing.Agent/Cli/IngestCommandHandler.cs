@@ -2,14 +2,16 @@ using LocatorHealing.Agent.Infrastructure;
 
 namespace LocatorHealing.Agent.Cli;
 
-public sealed class IngestCommandHandler
+internal sealed class IngestCommandHandler(
+    NUnitResultParser resultParser,
+    SeleniumFailureParser failureParser,
+    JsonFailureDiagnosticsWriter diagnosticsWriter)
 {
     public Task<int> InvokeAsync(FileInfo resultsFile, DirectoryInfo? outputDir)
     {
         try
         {
-            var parser = new NUnitResultParser();
-            var failures = parser.ParseFailures(resultsFile.FullName);
+            var failures = resultParser.ParseFailures(resultsFile.FullName);
 
             if (failures.Count == 0)
             {
@@ -17,17 +19,13 @@ public sealed class IngestCommandHandler
                 return Task.FromResult(0);
             }
 
-            var repoPathResolver = new RepoPathResolver();
-            var failureParser = new SeleniumFailureParser(repoPathResolver);
-            var writer = new JsonFailureDiagnosticsWriter();
-
             var targetDir = outputDir?.FullName
                 ?? Path.Combine(Path.GetDirectoryName(resultsFile.FullName)!, "error-traces");
 
             foreach (var failure in failures)
             {
                 var artifact = failureParser.Parse(failure);
-                var path = writer.Write(artifact, targetDir);
+                var path = diagnosticsWriter.Write(artifact, targetDir);
                 Console.WriteLine(path);
             }
 

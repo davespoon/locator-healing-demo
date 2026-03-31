@@ -9,7 +9,7 @@ internal sealed partial class LoopGuardExecutor(LoopGuardPolicy loopGuardPolicy)
     [MessageHandler]
     private ValueTask<RepairWorkflowState> HandleAsync(RepairWorkflowState state, IWorkflowContext context)
     {
-        if (!loopGuardPolicy.CanProceed(state, DateTimeOffset.UtcNow, out var reason))
+        if (!loopGuardPolicy.CanProceed(state, out var reason))
         {
             state.StopReason = reason;
         }

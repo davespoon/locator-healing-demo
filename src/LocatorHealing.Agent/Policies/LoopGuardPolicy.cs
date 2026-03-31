@@ -2,11 +2,11 @@
 
 namespace LocatorHealing.Agent.Policies;
 
-public sealed class LoopGuardPolicy
+public sealed class LoopGuardPolicy(TimeProvider timeProvider)
 {
     public const int MaxAttemptsPerFingerprint = 2;
 
-    public bool CanProceed(RepairWorkflowState state, DateTimeOffset nowUtc, out string? reason)
+    public bool CanProceed(RepairWorkflowState state, out string? reason)
     {
         if (state.AttemptCount >= MaxAttemptsPerFingerprint)
         {
@@ -14,6 +14,7 @@ public sealed class LoopGuardPolicy
             return false;
         }
 
+        var nowUtc = timeProvider.GetUtcNow();
         if (state.CooldownUntilUtc is not null && state.CooldownUntilUtc > nowUtc)
         {
             reason = $"Cooldown active until {state.CooldownUntilUtc:O}.";

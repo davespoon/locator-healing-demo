@@ -46,13 +46,7 @@ public abstract class TestBase
     {
         try
         {
-            if (Driver is ITakesScreenshot screenshotDriver)
-            {
-                var screenshot = screenshotDriver.GetScreenshot();
-                return Artifacts.WriteScreenshot(testName, screenshot.AsByteArray);
-            }
-
-            return null;
+            return Artifacts.WriteScreenshot(testName, Driver);
         }
         catch
         {

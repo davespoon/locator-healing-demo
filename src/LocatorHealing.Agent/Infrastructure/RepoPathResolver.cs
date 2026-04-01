@@ -24,6 +24,17 @@ internal sealed class RepoPathResolver
             .Replace(Path.AltDirectorySeparatorChar, '/');
     }
 
+    public string? ToAbsolutePath(string? repoRelativePath)
+    {
+        if (string.IsNullOrWhiteSpace(repoRelativePath) || string.IsNullOrWhiteSpace(_repositoryRoot))
+        {
+            return null;
+        }
+
+        var normalized = repoRelativePath.Replace('/', Path.DirectorySeparatorChar);
+        return Path.GetFullPath(Path.Combine(_repositoryRoot, normalized));
+    }
+
     private static string? FindRepositoryRoot()
     {
         var current = new DirectoryInfo(AppContext.BaseDirectory);

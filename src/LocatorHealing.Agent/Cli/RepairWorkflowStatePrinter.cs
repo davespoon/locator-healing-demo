@@ -10,6 +10,7 @@ internal static class RepairWorkflowStatePrinter
 
         PrintIncident(output, state);
         PrintCandidates(output, state.Candidates);
+        PrintPatch(output, state.AppliedPatch);
         PrintOutcome(output, state.StopReason);
     }
 
@@ -36,15 +37,20 @@ internal static class RepairWorkflowStatePrinter
         }
     }
 
+    private static void PrintPatch(TextWriter output, PageObjectPatch? patch)
+    {
+        if (patch is null) return;
+
+        output.WriteLine($"  Patched: {patch.OldSelector} → {patch.NewSelector}");
+        output.WriteLine($"    Strategy: {patch.Strategy}");
+        output.WriteLine($"    File: {patch.PageObjectPath}");
+    }
+
     private static void PrintOutcome(TextWriter output, string? stopReason)
     {
         if (!string.IsNullOrWhiteSpace(stopReason))
         {
             output.WriteLine($"  Stopped: {stopReason}");
-        }
-        else
-        {
-            output.WriteLine("  Ready for patching step.");
         }
     }
 }

@@ -2,9 +2,9 @@ using System.CommandLine;
 
 namespace LocatorHealing.Agent.Cli;
 
-internal static class IngestCommandDefinition
+internal static class RunCommandDefinition
 {
-    public static Command Create(IngestCommandHandler handler)
+    public static Command Create(RunCommandHandler handler)
     {
         var resultsFileArgument = new Argument<FileInfo>("test-results-file")
         {
@@ -19,7 +19,7 @@ internal static class IngestCommandDefinition
             Description = "Directory to write diagnostics JSON files. Defaults to 'error-traces' next to the results file."
         };
 
-        var command = new Command("ingest", "Parse NUnit XML test results and generate failure diagnostics JSON files.")
+        var command = new Command("run", "Parse NUnit XML test results and generate validated locator repair candidates.")
         {
             resultsFileArgument,
             outputDirOption

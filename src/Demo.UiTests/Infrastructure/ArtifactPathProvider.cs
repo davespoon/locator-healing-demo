@@ -2,19 +2,29 @@ using System.Text;
 
 namespace Demo.UiTests.Infrastructure;
 
-public sealed class ArtifactPathProvider(string? root = null)
+public sealed class ArtifactPathProvider
 {
-    private readonly string _root = root ?? ResolveArtifactsRoot();
-
-    public string CreateArtifactPath(string folder, string testName, string extension)
+    public string CreateArtifactPath(string testName, string extension)
     {
-        var directory = Path.Combine(_root, folder);
-        Directory.CreateDirectory(directory);
+        var root = ResolveWorkDirectory();
 
         var safeTestName = SanitizeFileName(testName);
         var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
 
-        return Path.Combine(directory, $"{safeTestName}_{timestamp}.{extension}");
+        return Path.Combine(root, $"{safeTestName}_{timestamp}.{extension}");
+    }
+
+    private static string ResolveWorkDirectory()
+    {
+        var workDirectory = TestContext.CurrentContext.WorkDirectory;
+
+        if (string.IsNullOrWhiteSpace(workDirectory))
+        {
+            throw new InvalidOperationException(
+                "NUnit WorkDirectory is not available.");
+        }
+
+        return Path.GetFullPath(workDirectory);
     }
 
     private static string SanitizeFileName(string value)
@@ -28,25 +38,5 @@ public sealed class ArtifactPathProvider(string? root = null)
         }
 
         return builder.ToString();
-    }
-
-    private static string ResolveArtifactsRoot()
-    {
-        var current = new DirectoryInfo(AppContext.BaseDirectory);
-
-        while (current is not null)
-        {
-            var hasGit = Directory.Exists(Path.Combine(current.FullName, ".git"));
-            var hasSolution = File.Exists(Path.Combine(current.FullName, "LocatorHealingDemo.slnx"));
-
-            if (hasGit || hasSolution)
-            {
-                return Path.Combine(current.FullName, "artifacts");
-            }
-
-            current = current.Parent;
-        }
-
-        return Path.Combine(Directory.GetCurrentDirectory(), "artifacts");
     }
 }

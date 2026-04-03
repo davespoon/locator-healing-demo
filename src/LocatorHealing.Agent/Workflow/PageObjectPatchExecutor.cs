@@ -24,6 +24,12 @@ internal sealed partial class PageObjectPatchExecutor(RepoPathResolver repoPathR
             return state;
         }
 
+        if (state.Incident.PageObjectLineNumber is null)
+        {
+            state.StopReason = "Cannot patch page object: line number is unknown.";
+            return state;
+        }
+
         var pageObjectPath = repoPathResolver.ToAbsolutePath(state.Incident.RepoRelativePageObjectPath);
         if (pageObjectPath is null || !File.Exists(pageObjectPath))
         {
@@ -37,7 +43,7 @@ internal sealed partial class PageObjectPatchExecutor(RepoPathResolver repoPathR
             state.Incident.LocatorSelector!,
             state.Incident.LocatorStrategy!,
             best,
-            state.Incident.PageObjectLineNumber);
+            state.Incident.PageObjectLineNumber.Value);
 
         if (patched == original)
         {
@@ -61,19 +67,34 @@ internal sealed partial class PageObjectPatchExecutor(RepoPathResolver repoPathR
         string oldSelector,
         string oldStrategy,
         CandidateLocator candidate,
-        int? pageObjectLineNumber)
+        int pageObjectLineNumber)
     {
-        var patched = source.Replace($"\"{oldSelector}\"", $"\"{candidate.Value}\"", StringComparison.Ordinal);
+        var patched = ReplaceSelectorAtLine(source, oldSelector, candidate.Value, pageObjectLineNumber);
 
         if (!string.Equals(oldStrategy, candidate.Strategy, StringComparison.OrdinalIgnoreCase)
-            && pageObjectLineNumber.HasValue
             && TryGetByMethodName(oldStrategy, out var oldMethod)
             && TryGetByMethodName(candidate.Strategy, out var newMethod))
         {
-            patched = ReplaceByMethodAtLine(patched, oldMethod, newMethod, pageObjectLineNumber.Value);
+            patched = ReplaceByMethodAtLine(patched, oldMethod, newMethod, pageObjectLineNumber);
         }
 
         return patched;
+    }
+
+    private static string ReplaceSelectorAtLine(string source, string oldSelector, string newSelector, int lineNumber)
+    {
+        var lines = source.Split('\n');
+        var lineIndex = lineNumber - 1;
+
+        if (lineIndex < 0 || lineIndex >= lines.Length)
+        {
+            return source;
+        }
+
+        lines[lineIndex] = lines[lineIndex].Replace(
+            $"\"{oldSelector}\"", $"\"{newSelector}\"", StringComparison.Ordinal);
+
+        return string.Join('\n', lines);
     }
 
     private static string ReplaceByMethodAtLine(string source, string oldMethod, string newMethod, int lineNumber)

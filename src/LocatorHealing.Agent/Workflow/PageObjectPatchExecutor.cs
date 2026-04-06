@@ -4,7 +4,8 @@ using Microsoft.Agents.AI.Workflows;
 
 namespace LocatorHealing.Agent.Workflow;
 
-internal sealed partial class PageObjectPatchExecutor(RepoPathResolver repoPathResolver) : Executor("PageObjectPatch")
+internal sealed partial class PageObjectPatchExecutor(RepoPathResolver repoPathResolver)
+    : Executor("PageObjectPatch")
 {
     [MessageHandler]
     private async ValueTask<RepairWorkflowState> HandleAsync(
@@ -38,7 +39,7 @@ internal sealed partial class PageObjectPatchExecutor(RepoPathResolver repoPathR
         }
 
         var original = await File.ReadAllTextAsync(pageObjectPath, cancellationToken);
-        var patched = PatchSource(
+        var patched = PageObjectPatcher.Patch(
             original,
             state.Incident.LocatorSelector!,
             state.Incident.LocatorStrategy!,
@@ -60,74 +61,5 @@ internal sealed partial class PageObjectPatchExecutor(RepoPathResolver repoPathR
             Strategy: best.Strategy);
 
         return state;
-    }
-
-    private static string PatchSource(
-        string source,
-        string oldSelector,
-        string oldStrategy,
-        CandidateLocator candidate,
-        int pageObjectLineNumber)
-    {
-        var patched = ReplaceSelectorAtLine(source, oldSelector, candidate.Value, pageObjectLineNumber);
-
-        if (!string.Equals(oldStrategy, candidate.Strategy, StringComparison.OrdinalIgnoreCase)
-            && TryGetByMethodName(oldStrategy, out var oldMethod)
-            && TryGetByMethodName(candidate.Strategy, out var newMethod))
-        {
-            patched = ReplaceByMethodAtLine(patched, oldMethod, newMethod, pageObjectLineNumber);
-        }
-
-        return patched;
-    }
-
-    private static string ReplaceSelectorAtLine(string source, string oldSelector, string newSelector, int lineNumber)
-    {
-        var lines = source.Split('\n');
-        var lineIndex = lineNumber - 1;
-
-        if (lineIndex < 0 || lineIndex >= lines.Length)
-        {
-            return source;
-        }
-
-        lines[lineIndex] = lines[lineIndex].Replace(
-            $"\"{oldSelector}\"", $"\"{newSelector}\"", StringComparison.Ordinal);
-
-        return string.Join('\n', lines);
-    }
-
-    private static string ReplaceByMethodAtLine(string source, string oldMethod, string newMethod, int lineNumber)
-    {
-        var lines = source.Split('\n');
-        var lineIndex = lineNumber - 1;
-
-        if (lineIndex < 0 || lineIndex >= lines.Length)
-        {
-            return source;
-        }
-
-        lines[lineIndex] = lines[lineIndex].Replace(
-            $"By.{oldMethod}(", $"By.{newMethod}(", StringComparison.Ordinal);
-
-        return string.Join('\n', lines);
-    }
-
-    private static bool TryGetByMethodName(string strategy, out string methodName)
-    {
-        methodName = strategy.ToLowerInvariant() switch
-        {
-            "css selector" => "CssSelector",
-            "id" => "Id",
-            "name" => "Name",
-            "xpath" => "XPath",
-            "class name" => "ClassName",
-            "tag name" => "TagName",
-            "link text" => "LinkText",
-            "partial link text" => "PartialLinkText",
-            _ => string.Empty
-        };
-
-        return methodName.Length > 0;
     }
 }

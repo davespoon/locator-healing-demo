@@ -16,6 +16,17 @@ internal sealed partial class SeleniumFailureParser(RepoPathResolver repoPathRes
             location.FilePath.Contains("/Pages/", StringComparison.OrdinalIgnoreCase) ||
             location.FilePath.Contains("\\Pages\\", StringComparison.OrdinalIgnoreCase));
 
+        if (pageObjectLocation is not null && File.Exists(pageObjectLocation.FilePath))
+        {
+            var definitionLine = ResolveLocatorDefinitionLine(
+                File.ReadAllText(pageObjectLocation.FilePath), pageObjectLocation.LineNumber);
+
+            if (definitionLine is not null)
+            {
+                pageObjectLocation = pageObjectLocation with { LineNumber = definitionLine.Value };
+            }
+        }
+
         var testLocation = sourceLocations.FirstOrDefault(location =>
             location.FilePath.EndsWith("Tests.cs", StringComparison.OrdinalIgnoreCase) ||
             location.FilePath.Contains("/Tests/", StringComparison.OrdinalIgnoreCase) ||
@@ -111,6 +122,62 @@ internal sealed partial class SeleniumFailureParser(RepoPathResolver repoPathRes
 
         return locations;
     }
+
+    private static int? ResolveLocatorDefinitionLine(string source, int usageLineNumber)
+    {
+        var lines = source.Split('\n');
+        var usageIndex = usageLineNumber - 1;
+
+        if (usageIndex < 0 || usageIndex >= lines.Length)
+        {
+            return null;
+        }
+
+        var windowStart = Math.Max(0, usageIndex - 2);
+        var windowEnd = Math.Min(lines.Length - 1, usageIndex + 2);
+
+        for (var i = windowStart; i <= windowEnd; i++)
+        {
+            if (ByInlineSelectorRegex().IsMatch(lines[i]))
+            {
+                return i + 1;
+            }
+
+            var match = ByIdentifierArgRegex().Match(lines[i]);
+            if (match.Success)
+            {
+                return FindFieldAssignment(lines, match.Groups["id"].Value);
+            }
+        }
+
+        return null;
+    }
+
+    private static int? FindFieldAssignment(string[] lines, string fieldName)
+    {
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var idx = lines[i].IndexOf(fieldName, StringComparison.Ordinal);
+            if (idx < 0)
+            {
+                continue;
+            }
+
+            var afterField = lines[i].AsSpan()[(idx + fieldName.Length)..].TrimStart();
+            if (afterField.StartsWith("="))
+            {
+                return i + 1;
+            }
+        }
+
+        return null;
+    }
+
+    [GeneratedRegex(@"By\.\w+\(\s*""")]
+    private static partial Regex ByInlineSelectorRegex();
+
+    [GeneratedRegex(@"By\.\w+\(\s*(?<id>[A-Za-z_]\w*)\s*\)")]
+    private static partial Regex ByIdentifierArgRegex();
 
     [GeneratedRegex(@"---->\s*(?<type>[\w\.]+)\s*:")]
     private static partial Regex NestedExceptionRegex();

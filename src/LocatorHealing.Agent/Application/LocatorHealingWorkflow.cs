@@ -18,7 +18,7 @@ internal static class LocatorHealingWorkflow
         var loopGuard = new LoopGuardExecutor(loopGuardPolicy);
         var locatorFailureCheck = new LocatorFailureCheckExecutor();
         var stop = new StopExecutor();
-        var candidateGeneration = new CandidateGenerationExecutor(openAiAgentFactory.Create());
+        var healerAgent = new CandidateGenerationExecutor(openAiAgentFactory.Create());
         var pageObjectPatch = new PageObjectPatchExecutor(new RepoPathResolver());
 
         return new WorkflowBuilder(failureIngest)
@@ -26,9 +26,9 @@ internal static class LocatorHealingWorkflow
             .AddEdge(loopGuard, stop, condition: ShouldStop())
             .AddEdge(loopGuard, locatorFailureCheck, condition: ShouldContinue())
             .AddEdge(locatorFailureCheck, stop, condition: ShouldStop())
-            .AddEdge(locatorFailureCheck, candidateGeneration, condition: ShouldContinue())
-            .AddEdge(candidateGeneration, stop, condition: ShouldStop())
-            .AddEdge(candidateGeneration, pageObjectPatch, condition: ShouldContinue())
+            .AddEdge(locatorFailureCheck, healerAgent, condition: ShouldContinue())
+            .AddEdge(healerAgent, stop, condition: ShouldStop())
+            .AddEdge(healerAgent, pageObjectPatch, condition: ShouldContinue())
             .WithOutputFrom(stop, pageObjectPatch)
             .Build();
     }

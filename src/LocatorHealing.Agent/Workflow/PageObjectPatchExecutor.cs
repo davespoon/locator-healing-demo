@@ -18,16 +18,10 @@ internal sealed partial class PageObjectPatchExecutor(RepoPathResolver repoPathR
             return state;
         }
 
-        var best = state.Candidates.MaxBy(c => c.Confidence);
-        if (best is null)
+        var bestCandidate = state.Candidates.MaxBy(c => c.Confidence);
+        if (bestCandidate is null)
         {
             state.StopReason = "No candidates available for patching.";
-            return state;
-        }
-
-        if (state.Incident.PageObjectLineNumber is null)
-        {
-            state.StopReason = "Cannot patch page object: line number is unknown.";
             return state;
         }
 
@@ -39,12 +33,7 @@ internal sealed partial class PageObjectPatchExecutor(RepoPathResolver repoPathR
         }
 
         var original = await File.ReadAllTextAsync(pageObjectPath, cancellationToken);
-        var patched = PageObjectPatcher.Patch(
-            original,
-            state.Incident.LocatorSelector!,
-            state.Incident.LocatorStrategy!,
-            best,
-            state.Incident.PageObjectLineNumber.Value);
+        var patched = PageObjectPatcher.Patch(original, state.Incident, bestCandidate);
 
         if (patched == original)
         {
@@ -57,8 +46,8 @@ internal sealed partial class PageObjectPatchExecutor(RepoPathResolver repoPathR
         state.AppliedPatch = new PageObjectPatch(
             PageObjectPath: pageObjectPath,
             OldSelector: state.Incident.LocatorSelector!,
-            NewSelector: best.Value,
-            Strategy: best.Strategy);
+            NewSelector: bestCandidate.Value,
+            Strategy: bestCandidate.Strategy);
 
         return state;
     }

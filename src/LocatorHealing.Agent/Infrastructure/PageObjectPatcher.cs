@@ -6,13 +6,16 @@ internal static class PageObjectPatcher
 {
     public static string Patch(
         string source,
-        string oldSelector,
-        string oldStrategy,
-        CandidateLocator candidate,
-        int pageObjectLineNumber)
+        LocatorRepairIncident incident,
+        CandidateLocator candidate)
     {
+        if (incident.PageObjectLineNumber is not { } lineNumber)
+        {
+            return source;
+        }
+
         var lines = source.Split('\n');
-        var lineIndex = pageObjectLineNumber - 1;
+        var lineIndex = lineNumber - 1;
 
         if (lineIndex < 0 || lineIndex >= lines.Length)
         {
@@ -20,10 +23,10 @@ internal static class PageObjectPatcher
         }
 
         lines[lineIndex] = lines[lineIndex].Replace(
-            $"\"{oldSelector}\"", $"\"{candidate.Value}\"", StringComparison.Ordinal);
+            $"\"{incident.LocatorSelector}\"", $"\"{candidate.Value}\"", StringComparison.Ordinal);
 
-        if (!string.Equals(oldStrategy, candidate.Strategy, StringComparison.OrdinalIgnoreCase)
-            && GetByMethodName(oldStrategy) is { } oldMethod
+        if (!string.Equals(incident.LocatorStrategy, candidate.Strategy, StringComparison.OrdinalIgnoreCase)
+            && GetByMethodName(incident.LocatorStrategy!) is { } oldMethod
             && GetByMethodName(candidate.Strategy) is { } newMethod)
         {
             lines[lineIndex] = lines[lineIndex].Replace(

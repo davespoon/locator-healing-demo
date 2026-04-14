@@ -8,7 +8,7 @@ namespace LocatorHealing.Agent.Application;
 
 internal static class LocatorHealingWorkflow
 {
-    public static AgentWorkflow Create()
+    public static AgentWorkflow Create(RepoPathResolver repoPathResolver)
     {
         var diagnosticsReader = new DiagnosticsArtifactReader();
         var loopGuardPolicy = new LoopGuardPolicy(TimeProvider.System);
@@ -19,7 +19,7 @@ internal static class LocatorHealingWorkflow
         var locatorFailureCheck = new LocatorFailureCheckExecutor();
         var stop = new StopExecutor();
         var healerAgent = new CandidateGenerationExecutor(openAiAgentFactory.Create());
-        var pageObjectPatch = new PageObjectPatchExecutor(new RepoPathResolver());
+        var pageObjectPatch = new PageObjectPatchExecutor(repoPathResolver);
 
         return new WorkflowBuilder(failureIngest)
             .AddEdge(failureIngest, loopGuard)

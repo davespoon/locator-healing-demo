@@ -1,0 +1,120 @@
+name: PR on failed Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  ui-tests-with-healing:
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: |
+          dotnet restore src/Demo.UiTests/Demo.UiTests.csproj
+          dotnet restore src/LocatorHealing.Agent/LocatorHealing.Agent.csproj
+
+      - name: Build
+        run: |
+          dotnet build src/Demo.UiTests/Demo.UiTests.csproj --configuration Release --no-restore
+          dotnet build src/LocatorHealing.Agent/LocatorHealing.Agent.csproj --configuration Release --no-restore
+
+      - name: Run UI tests
+        id: ui_tests
+        continue-on-error: true
+        run: |
+          mkdir -p artifacts/test-results
+          dotnet test src/Demo.UiTests/Demo.UiTests.csproj \
+            --configuration Release \
+            --no-build \
+            --logger "nunit;LogFilePath=${{ github.workspace }}/artifacts/test-results/nunit-results.xml"
+
+      - name: Run locator healer
+        id: healer
+        if: steps.ui_tests.outcome == 'failure'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          mkdir -p artifacts/locator-healing
+
+          set +e
+          dotnet run --project src/LocatorHealing.Agent/LocatorHealing.Agent.csproj --configuration Release -- \
+            run \
+            "${{ github.workspace }}/artifacts/test-results/nunit-results.xml" \
+            --repo-root "${{ github.workspace }}" \
+            --output-dir "${{ github.workspace }}/artifacts/locator-healing" \
+            --report-file "${{ github.workspace }}/artifacts/locator-healing/locator-healing-report.md"
+          HEALER_EXIT_CODE=$?
+          set -e
+
+          echo "exit_code=$HEALER_EXIT_CODE" >> "$GITHUB_OUTPUT"
+
+          if [ "$HEALER_EXIT_CODE" -eq 1 ]; then
+            echo "Locator healer failed with a tool error."
+            exit 1
+          fi
+
+      - name: Check for locator changes
+        id: diff
+        if: steps.ui_tests.outcome == 'failure'
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create locator healing PR
+        if: steps.ui_tests.outcome == 'failure' && steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="locator-healing/${{ github.run_id }}"
+          REPORT_FILE="${{ github.workspace }}/artifacts/locator-healing/locator-healing-report.md"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$BRANCH"
+          git add -u
+          git commit -m "Heal broken Selenium locator"
+          git push --set-upstream origin "$BRANCH"
+
+          if [ ! -f "$REPORT_FILE" ]; then
+            echo "Automated locator-healing proposal. Please review before merging." > "$REPORT_FILE"
+          fi
+
+          gh pr create \
+            --title "Heal broken Selenium locator" \
+            --body-file "$REPORT_FILE" \
+            --base main \
+            --head "$BRANCH"
+
+      - name: Fail when locator healing could not create a patch
+        if: steps.ui_tests.outcome == 'failure' && steps.diff.outputs.changed != 'true'
+        run: |
+          echo "UI tests failed, but locator healing did not produce a source change."
+          exit 1
+
+      - name: Upload locator healing artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: locator-healing-artifacts
+          path: artifacts
+          if-no-files-found: ignore

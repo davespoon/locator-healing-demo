@@ -2,11 +2,30 @@ namespace LocatorHealing.Agent.Infrastructure;
 
 internal sealed class RepoPathResolver
 {
-    private readonly string? _repositoryRoot = FindRepositoryRoot();
+    private readonly string _repositoryRoot;
+
+    public RepoPathResolver(string repositoryRoot)
+    {
+        if (string.IsNullOrWhiteSpace(repositoryRoot))
+        {
+            throw new ArgumentException("Repository root is required.", nameof(repositoryRoot));
+        }
+
+        var fullPath = Path.GetFullPath(repositoryRoot);
+
+        if (!Directory.Exists(fullPath))
+        {
+            throw new DirectoryNotFoundException($"Repository root was not found: {fullPath}");
+        }
+
+        _repositoryRoot = fullPath;
+    }
+
+    public string RepositoryRoot => _repositoryRoot;
 
     public string? ToRepoRelativePath(string? fullPath)
     {
-        if (string.IsNullOrWhiteSpace(fullPath) || string.IsNullOrWhiteSpace(_repositoryRoot))
+        if (string.IsNullOrWhiteSpace(fullPath))
         {
             return null;
         }
@@ -26,33 +45,18 @@ internal sealed class RepoPathResolver
 
     public string? ToAbsolutePath(string? repoRelativePath)
     {
-        if (string.IsNullOrWhiteSpace(repoRelativePath) || string.IsNullOrWhiteSpace(_repositoryRoot))
+        if (string.IsNullOrWhiteSpace(repoRelativePath))
         {
             return null;
         }
 
-        var normalized = repoRelativePath.Replace('/', Path.DirectorySeparatorChar);
-        return Path.GetFullPath(Path.Combine(_repositoryRoot, normalized));
-    }
-
-    private static string? FindRepositoryRoot()
-    {
-        var current = new DirectoryInfo(AppContext.BaseDirectory);
-
-        while (current is not null)
+        if (Path.IsPathRooted(repoRelativePath))
         {
-            var hasGit = Directory.Exists(Path.Combine(current.FullName, ".git"));
-            var hasSolution = File.Exists(Path.Combine(current.FullName, "LocatorHealingDemo.slnx"));
-
-            if (hasGit || hasSolution)
-            {
-                return current.FullName;
-            }
-
-            current = current.Parent;
+            return Path.GetFullPath(repoRelativePath);
         }
 
-        return null;
+        var normalized = repoRelativePath.Replace('/', Path.DirectorySeparatorChar);
+        return Path.GetFullPath(Path.Combine(_repositoryRoot, normalized));
     }
 
     private static string EnsureTrailingSeparator(string path)

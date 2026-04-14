@@ -14,12 +14,10 @@ public static class LocatorHealingAgentApplication
 
     private static RootCommand BuildRootCommand()
     {
-        var workflow = LocatorHealingWorkflow.Create();
         var resultParser = new NUnitResultParser();
-        var repoPathResolver = new RepoPathResolver();
-        var failureParser = new SeleniumFailureParser(repoPathResolver);
         var diagnosticsWriter = new JsonFailureDiagnosticsWriter();
-        var runHandler = new RunCommandHandler(resultParser, failureParser, diagnosticsWriter, workflow);
+        var reportWriter = new LocatorHealingReportWriter();
+        var runHandler = new RunCommandHandler(resultParser, diagnosticsWriter, reportWriter);
 
         return new RootCommand("Locator healing tool")
         {

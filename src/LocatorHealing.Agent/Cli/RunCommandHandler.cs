@@ -1,15 +1,10 @@
 using LocatorHealing.Agent.Application;
 using LocatorHealing.Agent.Contracts;
 using LocatorHealing.Agent.Infrastructure;
-using Microsoft.Agents.AI.Workflows;
-using AgentWorkflow = Microsoft.Agents.AI.Workflows.Workflow;
 
 namespace LocatorHealing.Agent.Cli;
 
-internal sealed class RunCommandHandler(
-    NUnitResultParser resultParser,
-    JsonFailureDiagnosticsWriter diagnosticsWriter,
-    LocatorHealingReportWriter reportWriter)
+internal sealed class RunCommandHandler(LocatorHealingPipelineFactory pipelineFactory)
 {
     public async Task<int> InvokeAsync(
         FileInfo resultsFile,
@@ -23,11 +18,13 @@ internal sealed class RunCommandHandler(
             return 1;
         }
 
+        var pipeline = pipelineFactory.Create(repoRoot.FullName);
+
         IReadOnlyList<TestFailureInfo> failures;
 
         try
         {
-            failures = resultParser.ParseFailures(resultsFile.FullName);
+            failures = pipeline.ResultParser.ParseFailures(resultsFile.FullName);
         }
         catch (Exception ex)
         {
@@ -39,14 +36,9 @@ internal sealed class RunCommandHandler(
         if (failures.Count == 0)
         {
             Console.WriteLine("No test failures found in the results file.");
-            WriteReportIfRequested(reportFile, []);
+            WriteReportIfRequested(pipeline, reportFile, []);
             return 0;
         }
-
-        var repoPathResolver = new RepoPathResolver(repoRoot.FullName);
-
-        var failureParser = new SeleniumFailureParser(repoPathResolver);
-        var workflow = LocatorHealingWorkflow.Create(repoPathResolver);
 
         var targetDir = outputDir?.FullName
                         ?? Path.Combine(Path.GetDirectoryName(resultsFile.FullName)!, "error-traces");
@@ -56,13 +48,19 @@ internal sealed class RunCommandHandler(
 
         foreach (var failure in failures)
         {
-            var artifact = failureParser.Parse(failure);
-            var diagnosticsPath = diagnosticsWriter.Write(artifact, targetDir);
+            var artifact = pipeline.FailureParser.Parse(failure);
+            var diagnosticsPath = pipeline.DiagnosticsWriter.Write(artifact, targetDir);
 
-            var result = await AnalyzeAsync(workflow, diagnosticsPath);
+            var result = await pipeline.FailureAnalyzer.AnalyzeAsync(diagnosticsPath);
+
+            if (result.ErrorMessage is not null)
+            {
+                Console.Error.WriteLine(result.ErrorMessage);
+            }
 
             if (result.State is not null)
             {
+                RepairWorkflowStatePrinter.Print(result.State);
                 analyzedStates.Add(result.State);
             }
 
@@ -72,44 +70,15 @@ internal sealed class RunCommandHandler(
             }
         }
 
-        WriteReportIfRequested(reportFile, analyzedStates);
+        WriteReportIfRequested(pipeline, reportFile, analyzedStates);
 
         return exitCode;
     }
 
-    private async Task<AnalysisResult> AnalyzeAsync(AgentWorkflow workflow, string diagnosticsFilePath)
-    {
-        try
-        {
-            await using var run = await InProcessExecution.RunStreamingAsync(workflow, input: diagnosticsFilePath);
-
-            await foreach (var evt in run.WatchStreamAsync())
-            {
-                switch (evt)
-                {
-                    case WorkflowOutputEvent output when output.Data is RepairWorkflowState state:
-                        RepairWorkflowStatePrinter.Print(state);
-                        return new AnalysisResult(state.IsStopped ? 2 : 0, state);
-
-                    case WorkflowErrorEvent error:
-                        Console.Error.WriteLine("Workflow error:");
-                        Console.Error.WriteLine(error.Data);
-                        return new AnalysisResult(1, null);
-                }
-            }
-
-            Console.Error.WriteLine("Workflow completed without output.");
-            return new AnalysisResult(1, null);
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine("Unhandled error:");
-            Console.Error.WriteLine(ex);
-            return new AnalysisResult(1, null);
-        }
-    }
-
-    private void WriteReportIfRequested(FileInfo? reportFile, IReadOnlyList<RepairWorkflowState> states)
+    private static void WriteReportIfRequested(
+        LocatorHealingPipeline pipeline,
+        FileInfo? reportFile,
+        IReadOnlyList<RepairWorkflowState> states)
     {
         if (reportFile is null)
         {
@@ -118,7 +87,7 @@ internal sealed class RunCommandHandler(
 
         try
         {
-            reportWriter.Write(reportFile.FullName, states);
+            pipeline.ReportWriter.Write(reportFile.FullName, states);
             Console.WriteLine($"Locator healing report written to: {reportFile.FullName}");
         }
         catch (Exception ex)
@@ -127,6 +96,4 @@ internal sealed class RunCommandHandler(
             Console.Error.WriteLine(ex.Message);
         }
     }
-
-    private sealed record AnalysisResult(int ExitCode, RepairWorkflowState? State);
 }

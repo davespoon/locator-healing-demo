@@ -1,5 +1,4 @@
 using LocatorHealing.Agent.Cli;
-using LocatorHealing.Agent.Infrastructure;
 using System.CommandLine;
 
 namespace LocatorHealing.Agent.Application;
@@ -14,10 +13,8 @@ public static class LocatorHealingAgentApplication
 
     private static RootCommand BuildRootCommand()
     {
-        var resultParser = new NUnitResultParser();
-        var diagnosticsWriter = new JsonFailureDiagnosticsWriter();
-        var reportWriter = new LocatorHealingReportWriter();
-        var runHandler = new RunCommandHandler(resultParser, diagnosticsWriter, reportWriter);
+        var pipelineFactory = new LocatorHealingPipelineFactory();
+        var runHandler = new RunCommandHandler(pipelineFactory);
 
         return new RootCommand("Locator healing tool")
         {

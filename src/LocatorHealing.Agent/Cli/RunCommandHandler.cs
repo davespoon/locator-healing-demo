@@ -1,11 +1,14 @@
 using LocatorHealing.Agent.Application;
 using LocatorHealing.Agent.Contracts;
 using LocatorHealing.Agent.Infrastructure;
+using Microsoft.Agents.AI.Workflows;
 
 namespace LocatorHealing.Agent.Cli;
 
-internal sealed class RunCommandHandler(LocatorHealingPipelineFactory pipelineFactory)
+internal sealed class RunCommandHandler
 {
+    private readonly LocatorHealingReportWriter _reportWriter = new();
+
     public async Task<int> InvokeAsync(
         FileInfo resultsFile,
         DirectoryInfo repoRoot,
@@ -18,65 +21,59 @@ internal sealed class RunCommandHandler(LocatorHealingPipelineFactory pipelineFa
             return 1;
         }
 
-        var pipeline = pipelineFactory.Create(repoRoot.FullName);
-
-        IReadOnlyList<TestFailureInfo> failures;
-
-        try
-        {
-            failures = pipeline.ResultParser.ParseFailures(resultsFile.FullName);
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine("Error parsing test results:");
-            Console.Error.WriteLine(ex.Message);
-            return 1;
-        }
-
-        if (failures.Count == 0)
-        {
-            Console.WriteLine("No test failures found in the results file.");
-            WriteReportIfRequested(pipeline, reportFile, []);
-            return 0;
-        }
-
         var targetDir = outputDir?.FullName
                         ?? Path.Combine(Path.GetDirectoryName(resultsFile.FullName)!, "error-traces");
+
+        var workflow = LocatorHealingWorkflow.Create(repoRoot.FullName, targetDir);
 
         var exitCode = 0;
         var analyzedStates = new List<RepairWorkflowState>();
 
-        foreach (var failure in failures)
+        try
         {
-            var artifact = pipeline.FailureParser.Parse(failure);
-            var diagnosticsPath = pipeline.DiagnosticsWriter.Write(artifact, targetDir);
+            await using var run = await InProcessExecution.RunStreamingAsync(
+                workflow, input: resultsFile.FullName);
 
-            var result = await pipeline.FailureAnalyzer.AnalyzeAsync(diagnosticsPath);
-
-            if (result.ErrorMessage is not null)
+            await foreach (var evt in run.WatchStreamAsync())
             {
-                Console.Error.WriteLine(result.ErrorMessage);
-            }
+                switch (evt)
+                {
+                    case WorkflowOutputEvent output when output.Data is RepairWorkflowState state:
+                        RepairWorkflowStatePrinter.Print(state);
+                        analyzedStates.Add(state);
 
-            if (result.State is not null)
-            {
-                RepairWorkflowStatePrinter.Print(result.State);
-                analyzedStates.Add(result.State);
-            }
+                        if (state.IsStopped && exitCode < 2)
+                        {
+                            exitCode = 2;
+                        }
 
-            if (result.ExitCode > exitCode)
-            {
-                exitCode = result.ExitCode;
+                        break;
+
+                    case WorkflowErrorEvent error:
+                        Console.Error.WriteLine($"Workflow error:{Environment.NewLine}{error.Data}");
+                        exitCode = 1;
+                        break;
+                }
             }
         }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("Error running workflow:");
+            Console.Error.WriteLine(ex.Message);
+            return 1;
+        }
 
-        WriteReportIfRequested(pipeline, reportFile, analyzedStates);
+        if (analyzedStates.Count == 0)
+        {
+            Console.WriteLine("No test failures found in the results file.");
+        }
+
+        WriteReportIfRequested(reportFile, analyzedStates);
 
         return exitCode;
     }
 
-    private static void WriteReportIfRequested(
-        LocatorHealingPipeline pipeline,
+    private void WriteReportIfRequested(
         FileInfo? reportFile,
         IReadOnlyList<RepairWorkflowState> states)
     {
@@ -87,7 +84,7 @@ internal sealed class RunCommandHandler(LocatorHealingPipelineFactory pipelineFa
 
         try
         {
-            pipeline.ReportWriter.Write(reportFile.FullName, states);
+            _reportWriter.Write(reportFile.FullName, states);
             Console.WriteLine($"Locator healing report written to: {reportFile.FullName}");
         }
         catch (Exception ex)

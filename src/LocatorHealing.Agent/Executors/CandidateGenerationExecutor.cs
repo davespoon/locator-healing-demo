@@ -1,9 +1,10 @@
 ﻿using LocatorHealing.Agent.Contracts;
 using LocatorHealing.Agent.Infrastructure;
+using LocatorHealing.Agent.Prompts;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 
-namespace LocatorHealing.Agent.Workflow;
+namespace LocatorHealing.Agent.Executors;
 
 internal sealed partial class CandidateGenerationExecutor(AIAgent agent) : Executor("CandidateGeneration")
 {

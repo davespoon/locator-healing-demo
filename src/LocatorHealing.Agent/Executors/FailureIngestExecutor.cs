@@ -2,7 +2,7 @@
 using LocatorHealing.Agent.Infrastructure;
 using Microsoft.Agents.AI.Workflows;
 
-namespace LocatorHealing.Agent.Workflow;
+namespace LocatorHealing.Agent.Executors;
 
 internal sealed partial class FailureIngestExecutor(DiagnosticsArtifactReader reader) : Executor("FailureIngest")
 {

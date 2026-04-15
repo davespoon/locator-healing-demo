@@ -1,6 +1,6 @@
 using LocatorHealing.Agent.Contracts;
 
-namespace LocatorHealing.Agent.Workflow;
+namespace LocatorHealing.Agent.Prompts;
 
 internal static class CandidatePromptBuilder
 {

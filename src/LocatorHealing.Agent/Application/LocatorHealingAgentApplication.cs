@@ -13,8 +13,7 @@ public static class LocatorHealingAgentApplication
 
     private static RootCommand BuildRootCommand()
     {
-        var pipelineFactory = new LocatorHealingPipelineFactory();
-        var runHandler = new RunCommandHandler(pipelineFactory);
+        var runHandler = new RunCommandHandler();
 
         return new RootCommand("Locator healing tool")
         {

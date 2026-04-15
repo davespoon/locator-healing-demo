@@ -1,19 +1,25 @@
 using LocatorHealing.Agent.Infrastructure;
 using LocatorHealing.Agent.Policies;
-using LocatorHealing.Agent.Workflow;
+using LocatorHealing.Agent.Executors;
 using Microsoft.Agents.AI.Workflows;
-using AgentWorkflow = Microsoft.Agents.AI.Workflows.Workflow;
 
 namespace LocatorHealing.Agent.Application;
 
 internal static class LocatorHealingWorkflow
 {
-    public static AgentWorkflow Create(RepoPathResolver repoPathResolver)
+    public static Workflow Create(string repoRoot, string outputDirectory)
     {
+        var resultParser = new NUnitResultParser();
+        var repoPathResolver = new RepoPathResolver(repoRoot);
+        var failureParser = new SeleniumFailureParser(repoPathResolver);
+        var diagnosticsWriter = new JsonFailureDiagnosticsWriter();
         var diagnosticsReader = new DiagnosticsArtifactReader();
         var loopGuardPolicy = new LoopGuardPolicy(TimeProvider.System);
         var openAiAgentFactory = new CandidateAgentFactory();
 
+        var resultsParse = new ResultsParseExecutor(resultParser);
+        var diagnosticsPreparation = new DiagnosticsPreparationExecutor(
+            failureParser, diagnosticsWriter, outputDirectory);
         var failureIngest = new FailureIngestExecutor(diagnosticsReader);
         var loopGuard = new LoopGuardExecutor(loopGuardPolicy);
         var locatorFailureCheck = new LocatorFailureCheckExecutor();
@@ -21,7 +27,9 @@ internal static class LocatorHealingWorkflow
         var healerAgent = new CandidateGenerationExecutor(openAiAgentFactory.Create());
         var pageObjectPatch = new PageObjectPatchExecutor(repoPathResolver);
 
-        return new WorkflowBuilder(failureIngest)
+        return new WorkflowBuilder(resultsParse)
+            .AddEdge(resultsParse, diagnosticsPreparation)
+            .AddEdge(diagnosticsPreparation, failureIngest)
             .AddEdge(failureIngest, loopGuard)
             .AddEdge(loopGuard, stop, condition: ShouldStop())
             .AddEdge(loopGuard, locatorFailureCheck, condition: ShouldContinue())

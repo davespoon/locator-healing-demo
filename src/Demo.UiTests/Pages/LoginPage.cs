@@ -1,4 +1,4 @@
-﻿using OpenQA.Selenium;
+using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
 using SeleniumExtras.WaitHelpers;
 
@@ -12,6 +12,7 @@ public sealed class LoginPage
     private const string UserNameLocatorValue = "input[data-test='usern@me']";
     private const string PasswordLocatorValue = "input[data-test='password']";
     private const string LoginButtonLocatorValue = "input[data-test='login-button']";
+    private const string ErrorMessageLocatorValue = "[data-te$t='error']";
 
     public LoginPage(IWebDriver driver)
     {
@@ -42,5 +43,20 @@ public sealed class LoginPage
             ExpectedConditions.ElementToBeClickable(By.CssSelector(LoginButtonLocatorValue)));
 
         loginButton.Click();
+    }
+
+    public bool IsLoaded()
+    {
+        return _wait.Until(
+            _ => _driver.Url.Contains("saucedemo.com", StringComparison.OrdinalIgnoreCase)
+                 && _driver.FindElements(By.CssSelector(UserNameLocatorValue)).Count > 0);
+    }
+
+    public string GetErrorMessage()
+    {
+        var error = _wait.Until(
+            ExpectedConditions.ElementIsVisible(By.CssSelector(ErrorMessageLocatorValue)));
+
+        return error.Text.Trim();
     }
 }

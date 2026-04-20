@@ -66,6 +66,7 @@ internal sealed class RunCommandHandler
         if (analyzedStates.Count == 0)
         {
             Console.WriteLine("No test failures found in the results file.");
+            return exitCode;
         }
 
         WriteReportIfRequested(reportFile, analyzedStates);

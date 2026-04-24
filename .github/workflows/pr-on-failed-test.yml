@@ -18,9 +18,7 @@ jobs:
   ui-tests-with-healing:
     runs-on: ubuntu-latest
     environment: dev
-    if: github.actor != 'github-actions[bot]'
     env:
-      LOCATOR_HEALING_VERSION: 0.1.0
       DOTNET_NOLOGO: true
 
     steps:
@@ -56,7 +54,10 @@ jobs:
         continue-on-error: true
         working-directory: ${{ github.workspace }}/artifacts/test-results
         run: |
+          set +e
           dotnet test "${{ github.workspace }}/src/Demo.UiTests/Demo.UiTests.csproj" --configuration Release --no-build --settings "${{ github.workspace }}/.runsettings"
+          TEST_EXIT_CODE=$?
+          set -e
 
           RESULTS_FILE="${{ github.workspace }}/artifacts/test-results/TestResult.xml"
 
@@ -65,8 +66,9 @@ jobs:
             exit 1
           fi
 
+          exit "$TEST_EXIT_CODE"
+
       - name: Run locator healer
-        id: healer
         if: steps.ui_tests.outcome == 'failure'
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -76,14 +78,12 @@ jobs:
             exit 1
           fi
 
-          dotnet tool install --tool-path "${{ github.workspace }}/artifacts/tools" LocatorHealing.Agent --add-source "${{ github.workspace }}/artifacts/tool-feed" --version "$LOCATOR_HEALING_VERSION"
+          dotnet tool install --tool-path "${{ github.workspace }}/artifacts/tools" LocatorHealing.Agent --add-source "${{ github.workspace }}/artifacts/tool-feed"
 
           set +e
           "${{ github.workspace }}/artifacts/tools/locator-healing" run "${{ github.workspace }}/artifacts/test-results/TestResult.xml" --repo-root "${{ github.workspace }}" --output-dir "${{ github.workspace }}/artifacts/locator-healing" --report-file "${{ github.workspace }}/artifacts/locator-healing/locator-healing-report.md"
           HEALER_EXIT_CODE=$?
           set -e
-
-          echo "exit_code=$HEALER_EXIT_CODE" >> "$GITHUB_OUTPUT"
 
           if [ "$HEALER_EXIT_CODE" -eq 1 ]; then
             echo "Locator healer failed with a tool error."

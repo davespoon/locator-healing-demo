@@ -17,6 +17,7 @@ concurrency:
 jobs:
   ui-tests-with-healing:
     runs-on: ubuntu-latest
+    environment: dev
     if: github.actor != 'github-actions[bot]'
     env:
       LOCATOR_HEALING_VERSION: 0.1.0

@@ -1,4 +1,4 @@
-name: PR on failed Test
+name: Locator healing PR
 
 on:
   workflow_dispatch:
@@ -10,39 +10,51 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: locator-healing-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   ui-tests-with-healing:
     runs-on: ubuntu-latest
     if: github.actor != 'github-actions[bot]'
+    env:
+      LOCATOR_HEALING_VERSION: 0.1.0
+      DOTNET_NOLOGO: true
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
 
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@v1
+
       - name: Restore
         run: |
           dotnet restore src/Demo.UiTests/Demo.UiTests.csproj
           dotnet restore src/LocatorHealing.Agent/LocatorHealing.Agent.csproj
 
-      - name: Build
-        run: |
-          dotnet build src/Demo.UiTests/Demo.UiTests.csproj --configuration Release --no-restore
-          dotnet build src/LocatorHealing.Agent/LocatorHealing.Agent.csproj --configuration Release --no-restore
+      - name: Prepare artifact directories
+        run: mkdir -p artifacts/test-results artifacts/locator-healing artifacts/tool-feed artifacts/tools
+
+      - name: Build UI tests
+        run: dotnet build src/Demo.UiTests/Demo.UiTests.csproj --configuration Release --no-restore
+
+      - name: Pack locator healing tool
+        run: dotnet pack src/LocatorHealing.Agent/LocatorHealing.Agent.csproj --configuration Release --no-restore --output "${{ github.workspace }}/artifacts/tool-feed"
 
       - name: Run UI tests
         id: ui_tests
         continue-on-error: true
-        run: |
-          mkdir -p artifacts/test-results
-          dotnet test src/Demo.UiTests/Demo.UiTests.csproj \
-            --configuration Release \
-            --no-build \
-            --logger "nunit;LogFilePath=${{ github.workspace }}/artifacts/test-results/nunit-results.xml"
+        working-directory: ${{ github.workspace }}/artifacts/test-results
+        run: dotnet test "${{ github.workspace }}/src/Demo.UiTests/Demo.UiTests.csproj" --configuration Release --no-build --settings "${{ github.workspace }}/.runsettings" --logger "nunit;LogFilePath=${{ github.workspace }}/artifacts/test-results/nunit-results.xml"
 
       - name: Run locator healer
         id: healer
@@ -50,15 +62,15 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          mkdir -p artifacts/locator-healing
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "OPENAI_API_KEY secret is required to generate locator candidates."
+            exit 1
+          fi
+
+          dotnet tool install --tool-path "${{ github.workspace }}/artifacts/tools" LocatorHealing.Agent --add-source "${{ github.workspace }}/artifacts/tool-feed" --version "$LOCATOR_HEALING_VERSION"
 
           set +e
-          dotnet run --project src/LocatorHealing.Agent/LocatorHealing.Agent.csproj --configuration Release -- \
-            run \
-            "${{ github.workspace }}/artifacts/test-results/nunit-results.xml" \
-            --repo-root "${{ github.workspace }}" \
-            --output-dir "${{ github.workspace }}/artifacts/locator-healing" \
-            --report-file "${{ github.workspace }}/artifacts/locator-healing/locator-healing-report.md"
+          "${{ github.workspace }}/artifacts/tools/locator-healing" run "${{ github.workspace }}/artifacts/test-results/nunit-results.xml" --repo-root "${{ github.workspace }}" --output-dir "${{ github.workspace }}/artifacts/locator-healing" --report-file "${{ github.workspace }}/artifacts/locator-healing/locator-healing-report.md"
           HEALER_EXIT_CODE=$?
           set -e
 
@@ -73,37 +85,40 @@ jobs:
         id: diff
         if: steps.ui_tests.outcome == 'failure'
         run: |
-          if git diff --quiet; then
+          if git diff --quiet -- src; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Create locator healing PR
+      - name: Ensure locator healing report exists
         if: steps.ui_tests.outcome == 'failure' && steps.diff.outputs.changed == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          BRANCH="locator-healing/${{ github.run_id }}"
           REPORT_FILE="${{ github.workspace }}/artifacts/locator-healing/locator-healing-report.md"
 
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          git checkout -b "$BRANCH"
-          git add -u
-          git commit -m "Heal broken Selenium locator"
-          git push --set-upstream origin "$BRANCH"
-
           if [ ! -f "$REPORT_FILE" ]; then
-            echo "Automated locator-healing proposal. Please review before merging." > "$REPORT_FILE"
+            printf '# Locator healing report\n\nAutomated locator-healing proposal. Please review before merging.\n' > "$REPORT_FILE"
           fi
 
-          gh pr create \
-            --title "Heal broken Selenium locator" \
-            --body-file "$REPORT_FILE" \
-            --base main \
-            --head "$BRANCH"
+      - name: Create locator healing PR
+        id: create_pr
+        if: steps.ui_tests.outcome == 'failure' && steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          add-paths: |
+            src
+          author: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
+          branch: locator-healing/${{ github.run_id }}-${{ github.run_attempt }}
+          commit-message: Heal broken Selenium locator
+          committer: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
+          delete-branch: true
+          title: Heal broken Selenium locator
+          body-path: artifacts/locator-healing/locator-healing-report.md
+
+      - name: Report created pull request
+        if: steps.create_pr.outputs.pull-request-url != ''
+        run: |
+          echo "Created review PR: ${{ steps.create_pr.outputs.pull-request-url }}"
 
       - name: Fail when locator healing could not create a patch
         if: steps.ui_tests.outcome == 'failure' && steps.diff.outputs.changed != 'true'

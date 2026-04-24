@@ -11,6 +11,13 @@
 		<PackageId>LocatorHealing.Agent</PackageId>
 		<Version>0.1.0</Version>
 		<PackageOutputPath>./nupkg</PackageOutputPath>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageProjectUrl>https://github.com/davespoon/locator-healing-demo</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/davespoon/locator-healing-demo</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+		<PackageReleaseNotes>Initial packaged tool metadata for CI and future publishing.</PackageReleaseNotes>
 
 		<Authors>Grin</Authors>
 		<Description>CLI worker for analyzing Selenium locator failures and proposing validated healing candidates.</Description>
@@ -25,6 +32,10 @@
 		  <PrivateAssets>all</PrivateAssets>
 		</PackageReference>
 		<PackageReference Include="System.CommandLine" Version="2.0.5" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="README.md" Pack="true" PackagePath="\" />
 	</ItemGroup>
 
 </Project>

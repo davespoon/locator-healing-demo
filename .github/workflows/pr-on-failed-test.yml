@@ -55,7 +55,15 @@ jobs:
         id: ui_tests
         continue-on-error: true
         working-directory: ${{ github.workspace }}/artifacts/test-results
-        run: dotnet test "${{ github.workspace }}/src/Demo.UiTests/Demo.UiTests.csproj" --configuration Release --no-build --settings "${{ github.workspace }}/.runsettings" --logger "nunit;LogFilePath=${{ github.workspace }}/artifacts/test-results/nunit-results.xml"
+        run: |
+          dotnet test "${{ github.workspace }}/src/Demo.UiTests/Demo.UiTests.csproj" --configuration Release --no-build --settings "${{ github.workspace }}/.runsettings"
+
+          RESULTS_FILE="${{ github.workspace }}/artifacts/test-results/TestResult.xml"
+
+          if [ ! -f "$RESULTS_FILE" ]; then
+            echo "Expected NUnit results file was not produced: $RESULTS_FILE"
+            exit 1
+          fi
 
       - name: Run locator healer
         id: healer
@@ -71,7 +79,7 @@ jobs:
           dotnet tool install --tool-path "${{ github.workspace }}/artifacts/tools" LocatorHealing.Agent --add-source "${{ github.workspace }}/artifacts/tool-feed" --version "$LOCATOR_HEALING_VERSION"
 
           set +e
-          "${{ github.workspace }}/artifacts/tools/locator-healing" run "${{ github.workspace }}/artifacts/test-results/nunit-results.xml" --repo-root "${{ github.workspace }}" --output-dir "${{ github.workspace }}/artifacts/locator-healing" --report-file "${{ github.workspace }}/artifacts/locator-healing/locator-healing-report.md"
+          "${{ github.workspace }}/artifacts/tools/locator-healing" run "${{ github.workspace }}/artifacts/test-results/TestResult.xml" --repo-root "${{ github.workspace }}" --output-dir "${{ github.workspace }}/artifacts/locator-healing" --report-file "${{ github.workspace }}/artifacts/locator-healing/locator-healing-report.md"
           HEALER_EXIT_CODE=$?
           set -e
 

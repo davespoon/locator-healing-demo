@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RunSettings>
 	<NUnit>
+		<WorkDirectory>artifacts/test-results</WorkDirectory>
 		<TestOutputXml>TestResult.xml</TestOutputXml>
 		<OutputXmlFolderMode>RelativeToWorkFolder</OutputXmlFolderMode>
 	</NUnit>

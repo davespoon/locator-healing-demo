@@ -52,7 +52,6 @@ jobs:
       - name: Run UI tests
         id: ui_tests
         continue-on-error: true
-        working-directory: ${{ github.workspace }}/artifacts/test-results
         run: |
           set +e
           dotnet test "${{ github.workspace }}/src/Demo.UiTests/Demo.UiTests.csproj" --configuration Release --no-build --settings "${{ github.workspace }}/.runsettings"

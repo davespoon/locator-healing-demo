@@ -9,7 +9,7 @@ public sealed class LoginPage
     private readonly IWebDriver _driver;
     private readonly WebDriverWait _wait;
 
-    private const string UserNameLocatorValue = "input[data-test='usern@me']";
+    private const string UserNameLocatorValue = "input[data-test='username']";
     private const string PasswordLocatorValue = "input[data-test='password']";
     private const string LoginButtonLocatorValue = "input[data-test='login-button']";
     private const string ErrorMessageLocatorValue = "[data-te$t='error']";

@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+
 <RunSettings>
+	<RunConfiguration>
+		<ResultsDirectory>test-results</ResultsDirectory>
+	</RunConfiguration>
 	<NUnit>
-		<WorkDirectory>artifacts/test-results</WorkDirectory>
-		<TestOutputXml>TestResult.xml</TestOutputXml>
-		<OutputXmlFolderMode>RelativeToWorkFolder</OutputXmlFolderMode>
+		<WorkDirectory>test-results</WorkDirectory>
+		<OutputXmlFolderMode>UseResultDirectory</OutputXmlFolderMode>
 	</NUnit>
 </RunSettings>

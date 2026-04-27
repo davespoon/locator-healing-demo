@@ -6,6 +6,7 @@
 	</RunConfiguration>
 	<NUnit>
 		<WorkDirectory>test-results</WorkDirectory>
+		<TestOutputXml>.</TestOutputXml>
 		<OutputXmlFolderMode>UseResultDirectory</OutputXmlFolderMode>
 	</NUnit>
 </RunSettings>

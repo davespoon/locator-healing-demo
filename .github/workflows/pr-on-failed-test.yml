@@ -58,12 +58,14 @@ jobs:
           TEST_EXIT_CODE=$?
           set -e
 
-          RESULTS_FILE="${{ github.workspace }}/artifacts/test-results/TestResult.xml"
+          RESULTS_FILE=$(find "${{ github.workspace }}/test-results" -maxdepth 1 -type f -name '*.xml' -printf '%T@ %p\n' | sort -nr | head -n 1 | cut -d' ' -f2-)
 
-          if [ ! -f "$RESULTS_FILE" ]; then
-            echo "Expected NUnit results file was not produced: $RESULTS_FILE"
+          if [ -z "$RESULTS_FILE" ] || [ ! -f "$RESULTS_FILE" ]; then
+            echo "Expected NUnit results file was not produced in: ${{ github.workspace }}/test-results"
             exit 1
           fi
+
+          echo "results_file=$RESULTS_FILE" >> "$GITHUB_OUTPUT"
 
           exit "$TEST_EXIT_CODE"
 
@@ -80,7 +82,7 @@ jobs:
           dotnet tool install --tool-path "${{ github.workspace }}/artifacts/tools" LocatorHealing.Agent --add-source "${{ github.workspace }}/artifacts/tool-feed"
 
           set +e
-          "${{ github.workspace }}/artifacts/tools/locator-healing" run "${{ github.workspace }}/artifacts/test-results/TestResult.xml" --repo-root "${{ github.workspace }}" --output-dir "${{ github.workspace }}/artifacts/locator-healing" --report-file "${{ github.workspace }}/artifacts/locator-healing/locator-healing-report.md"
+          "${{ github.workspace }}/artifacts/tools/locator-healing" run "${{ steps.ui_tests.outputs.results_file }}" --repo-root "${{ github.workspace }}" --output-dir "${{ github.workspace }}/artifacts/locator-healing" --report-file "${{ github.workspace }}/artifacts/locator-healing/locator-healing-report.md"
           HEALER_EXIT_CODE=$?
           set -e
 

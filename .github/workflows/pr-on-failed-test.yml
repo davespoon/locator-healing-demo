@@ -69,6 +69,13 @@ jobs:
 
           exit "$TEST_EXIT_CODE"
 
+      - name: Collect raw test artifacts
+        if: always()
+        run: |
+          mkdir -p artifacts/test-results
+          cp -R test-results/* artifacts/test-results/ || true
+          cp -R src/Demo.UiTests/bin/Release/net10.0/test-results/* artifacts/test-results/ || true
+
       - name: Run locator healer
         if: steps.ui_tests.outcome == 'failure'
         env:

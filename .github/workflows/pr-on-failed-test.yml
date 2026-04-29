@@ -58,23 +58,16 @@ jobs:
           TEST_EXIT_CODE=$?
           set -e
 
-          RESULTS_FILE=$(find "${{ github.workspace }}/test-results" -maxdepth 1 -type f -name '*.xml' -printf '%T@ %p\n' | sort -nr | head -n 1 | cut -d' ' -f2-)
+          RESULTS_FILE=$(find "${{ github.workspace }}/artifacts/test-results" -maxdepth 1 -type f -name '*.xml' -printf '%T@ %p\n' | sort -nr | head -n 1 | cut -d' ' -f2-)
 
           if [ -z "$RESULTS_FILE" ] || [ ! -f "$RESULTS_FILE" ]; then
-            echo "Expected NUnit results file was not produced in: ${{ github.workspace }}/test-results"
+            echo "Expected NUnit results file was not produced in: ${{ github.workspace }}/artifacts/test-results"
             exit 1
           fi
 
           echo "results_file=$RESULTS_FILE" >> "$GITHUB_OUTPUT"
 
           exit "$TEST_EXIT_CODE"
-
-      - name: Collect raw test artifacts
-        if: always()
-        run: |
-          mkdir -p artifacts/test-results
-          cp -R test-results/* artifacts/test-results/ || true
-          cp -R src/Demo.UiTests/bin/Release/net10.0/test-results/* artifacts/test-results/ || true
 
       - name: Run locator healer
         if: steps.ui_tests.outcome == 'failure'

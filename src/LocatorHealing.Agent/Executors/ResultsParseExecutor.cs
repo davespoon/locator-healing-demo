@@ -8,10 +8,10 @@ internal sealed partial class ResultsParseExecutor(NUnitResultParser resultParse
 {
     [MessageHandler]
     private async ValueTask HandleAsync(
-        string resultsFilePath, IWorkflowContext context,
+        string resultsDirectoryPath, IWorkflowContext context,
         CancellationToken cancellationToken = default)
     {
-        var failures = resultParser.ParseFailures(resultsFilePath);
+        var failures = resultParser.ParseFailuresFromDirectory(resultsDirectoryPath);
 
         foreach (var failure in failures)
         {

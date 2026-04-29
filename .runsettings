@@ -2,10 +2,10 @@
 
 <RunSettings>
 	<RunConfiguration>
-		<ResultsDirectory>test-results</ResultsDirectory>
+		<ResultsDirectory>artifacts/test-results</ResultsDirectory>
 	</RunConfiguration>
 	<NUnit>
-		<WorkDirectory>test-results</WorkDirectory>
+		<WorkDirectory>artifacts/test-results</WorkDirectory>
 		<TestOutputXml>.</TestOutputXml>
 		<OutputXmlFolderMode>UseResultDirectory</OutputXmlFolderMode>
 	</NUnit>

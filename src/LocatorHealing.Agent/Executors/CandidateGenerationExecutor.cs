@@ -42,7 +42,7 @@ internal sealed partial class CandidateGenerationExecutor(AIAgent agent) : Execu
             return state;
         }
 
-        PopulateCandidates(state, result);
+        state.ApplyCandidates(result.Candidates.Select(MapToCandidate), MaxCandidates);
 
         if (state.Candidates.Count == 0)
         {
@@ -63,17 +63,7 @@ internal sealed partial class CandidateGenerationExecutor(AIAgent agent) : Execu
         return response.Result;
     }
 
-    private static void PopulateCandidates(RepairWorkflowState state, LocatorCandidateGenerationResult result)
-    {
-        state.Candidates.Clear();
-
-        foreach (var proposal in result.Candidates.Take(MaxCandidates))
-        {
-            state.Candidates.Add(MapToCandidateLocator(proposal));
-        }
-    }
-
-    private static CandidateLocator MapToCandidateLocator(LocatorCandidateProposal proposal) =>
+    private static CandidateLocator MapToCandidate(LocatorCandidateProposal proposal) =>
         new(
             Strategy: proposal.Strategy,
             Value: proposal.Value,

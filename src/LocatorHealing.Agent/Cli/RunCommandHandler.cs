@@ -10,7 +10,7 @@ internal sealed class RunCommandHandler
     private readonly LocatorHealingReportWriter _reportWriter = new();
 
     public async Task<int> InvokeAsync(
-        FileInfo resultsFile,
+        DirectoryInfo resultsDir,
         DirectoryInfo repoRoot,
         DirectoryInfo? outputDir,
         FileInfo? reportFile)
@@ -22,7 +22,7 @@ internal sealed class RunCommandHandler
         }
 
         var targetDir = outputDir?.FullName
-                        ?? Path.Combine(Path.GetDirectoryName(resultsFile.FullName)!, "error-traces");
+                        ?? Path.Combine(resultsDir.FullName, "error-traces");
 
         var workflow = LocatorHealingWorkflow.Create(repoRoot.FullName, targetDir);
 
@@ -32,7 +32,7 @@ internal sealed class RunCommandHandler
         try
         {
             await using var run = await InProcessExecution.RunStreamingAsync(
-                workflow, input: resultsFile.FullName);
+                workflow, input: resultsDir.FullName);
 
             await foreach (var evt in run.WatchStreamAsync())
             {
@@ -65,7 +65,7 @@ internal sealed class RunCommandHandler
 
         if (analyzedStates.Count == 0)
         {
-            Console.WriteLine("No test failures found in the results file.");
+            Console.WriteLine("No test failures found in the results directory.");
             return exitCode;
         }
 

@@ -16,4 +16,20 @@ public sealed class RepairWorkflowState
     public bool IsStopped => !string.IsNullOrWhiteSpace(StopReason);
 
     public List<CandidateLocator> Candidates { get; } = [];
+
+    public void ApplyCandidates(IEnumerable<CandidateLocator> candidates, int maxCount)
+    {
+        Candidates.Clear();
+
+        foreach (var candidate in candidates.Take(maxCount))
+        {
+            Candidates.Add(candidate);
+        }
+    }
+
+    public static readonly Func<object?, bool> Stopped =
+        data => data is RepairWorkflowState state && state.IsStopped;
+
+    public static readonly Func<object?, bool> NotStopped =
+        data => data is not RepairWorkflowState state || !state.IsStopped;
 }

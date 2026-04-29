@@ -12,7 +12,7 @@ public sealed class LoginPage
     private const string UserNameLocatorValue = "input[data-test='username']";
     private const string PasswordLocatorValue = "input[data-test='password']";
     private const string LoginButtonLocatorValue = "input[data-test='login-button']";
-    private const string ErrorMessageLocatorValue = "[data-te$t='error']";
+    private const string ErrorMessageLocatorValue = "[data-test='error']";
 
     public LoginPage(IWebDriver driver)
     {

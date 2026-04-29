@@ -30,4 +30,22 @@ internal static class FileArgumentValidator
             result.AddError($"File must have a {expectedExtension} extension.");
         }
     }
+
+    public static void ValidateDirectory(
+        ArgumentResult result,
+        Argument<DirectoryInfo> argument)
+    {
+        var directory = result.GetValue(argument);
+
+        if (directory is null)
+        {
+            result.AddError("A test results directory path is required.");
+            return;
+        }
+
+        if (!directory.Exists)
+        {
+            result.AddError($"Directory does not exist: {directory.FullName}");
+        }
+    }
 }

@@ -4,6 +4,19 @@ namespace LocatorHealing.Agent.Infrastructure;
 
 internal sealed class NUnitResultParser
 {
+    public IReadOnlyList<TestFailureInfo> ParseFailuresFromDirectory(string directoryPath)
+    {
+        var xmlFiles = Directory.GetFiles(directoryPath, "*.xml");
+        var allFailures = new List<TestFailureInfo>();
+
+        foreach (var file in xmlFiles)
+        {
+            allFailures.AddRange(ParseFailures(file));
+        }
+
+        return allFailures;
+    }
+
     public IReadOnlyList<TestFailureInfo> ParseFailures(string resultsFilePath)
     {
         var doc = XDocument.Load(resultsFilePath);

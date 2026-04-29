@@ -6,13 +6,13 @@ internal static class RunCommandDefinition
 {
     public static Command Create(RunCommandHandler handler)
     {
-        var resultsFileArgument = new Argument<FileInfo>("test-results-file")
+        var resultsDirectoryArgument = new Argument<DirectoryInfo>("test-results-directory")
         {
-            Description = "Path to an NUnit3 XML test results file."
+            Description = "Path to a directory containing NUnit3 XML test results files."
         };
 
-        resultsFileArgument.Validators.Add(result =>
-            FileArgumentValidator.Validate(result, resultsFileArgument, ".xml", "test results file"));
+        resultsDirectoryArgument.Validators.Add(result =>
+            FileArgumentValidator.ValidateDirectory(result, resultsDirectoryArgument));
 
         var repoRootOption = new Option<DirectoryInfo>("--repo-root")
         {
@@ -23,7 +23,7 @@ internal static class RunCommandDefinition
         var outputDirOption = new Option<DirectoryInfo?>("--output-dir")
         {
             Description =
-                "Directory to write diagnostics JSON files. Defaults to 'error-traces' next to the results file."
+                "Directory to write diagnostics JSON files. Defaults to 'error-traces' next to the results directory."
         };
 
         var reportFileOption = new Option<FileInfo?>("--report-file")
@@ -32,9 +32,9 @@ internal static class RunCommandDefinition
         };
 
         var command = new Command("run",
-            "Parse NUnit XML test results and generate validated locator repair candidates.")
+            "Parse NUnit XML test results from a directory and generate validated locator repair candidates.")
         {
-            resultsFileArgument,
+            resultsDirectoryArgument,
             repoRootOption,
             outputDirOption,
             reportFileOption
@@ -42,12 +42,12 @@ internal static class RunCommandDefinition
 
         command.SetAction(async parseResult =>
         {
-            var resultsFile = parseResult.GetValue(resultsFileArgument);
+            var resultsDir = parseResult.GetValue(resultsDirectoryArgument);
             var repoRoot = parseResult.GetValue(repoRootOption);
             var outputDir = parseResult.GetValue(outputDirOption);
             var reportFile = parseResult.GetValue(reportFileOption);
 
-            return await handler.InvokeAsync(resultsFile!, repoRoot!, outputDir, reportFile);
+            return await handler.InvokeAsync(resultsDir!, repoRoot!, outputDir, reportFile);
         });
 
         return command;

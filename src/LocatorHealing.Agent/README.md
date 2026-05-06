@@ -11,12 +11,12 @@ dotnet tool install --global LocatorHealing.Agent
 ## Usage
 
 ```bash
-locator-healing run <test-results-file> --repo-root <repo-root> [--output-dir <output-dir>] [--report-file <report-file>]
+locator-healing run <test-results-directory> --repo-root <repo-root> [--output-dir <output-dir>] [--report-file <report-file>]
 ```
 
 ## Requirements
 
-- NUnit XML test results
+- A directory containing NUnit XML test result files
 - Selenium failure details in the test output
 - `OPENAI_API_KEY` environment variable for candidate generation
 

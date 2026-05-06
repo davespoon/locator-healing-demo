@@ -13,7 +13,10 @@ internal sealed partial class LoopGuardExecutor(LoopGuardPolicy loopGuardPolicy)
         if (!loopGuardPolicy.CanProceed(state, out var reason))
         {
             state.StopReason = reason;
+            return ValueTask.FromResult(state);
         }
+
+        state.AttemptCount++;
 
         return ValueTask.FromResult(state);
     }

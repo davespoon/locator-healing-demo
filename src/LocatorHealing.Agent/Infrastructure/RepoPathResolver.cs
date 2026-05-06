@@ -21,8 +21,6 @@ internal sealed class RepoPathResolver
         _repositoryRoot = fullPath;
     }
 
-    public string RepositoryRoot => _repositoryRoot;
-
     public string? ToRepoRelativePath(string? fullPath)
     {
         if (string.IsNullOrWhiteSpace(fullPath))

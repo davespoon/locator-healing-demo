@@ -8,7 +8,6 @@ public sealed class RepairWorkflowState
     public string? ResolvedDomSnapshotPath { get; init; }
 
     public int AttemptCount { get; set; }
-    public string? ExistingPullRequestUrl { get; set; }
     public DateTimeOffset? CooldownUntilUtc { get; set; }
     public string? StopReason { get; set; }
     public PageObjectPatch? AppliedPatch { get; set; }

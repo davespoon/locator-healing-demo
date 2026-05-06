@@ -2,9 +2,7 @@ namespace LocatorHealing.Agent.Infrastructure;
 
 internal sealed class LocatorCandidateGenerationResult
 {
-    public string SchemaVersion { get; set; } = "1.0";
     public string Decision { get; set; } = string.Empty; // candidates | insufficient_evidence
-    public string Summary { get; set; } = string.Empty;
     public List<LocatorCandidateProposal> Candidates { get; set; } = [];
 }
 
